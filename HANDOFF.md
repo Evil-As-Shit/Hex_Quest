@@ -22,16 +22,41 @@ were found on 4.2 and may or may not still apply on 4.7.
   4.6+ format with `unique_id=`, so don't open them in an older editor), GDScript, **GL Compatibility** renderer, 1080x720 viewport
   stretch, nearest texture filtering. Repo: `github.com/Evil-As-Shit/Hex_Quest`.
 * Player character is **Hexy** (pronouns unknown: **use neutral wording** in comments and docs).
-* Playable scenes: `The Game/2 - The Apartments/The Apartments.tscn` and `The Game/1 - TheSat/Scenes/the_satellite.tscn`.
+* Startup scene: `The Game/0 - Main Menu/Main_Menu.tscn` (project main scene). New Game starts
+  `The Game/1 - TheSat/Scenes/the_satellite.tscn`; the other level is `The Game/2 - The Apartments/The Apartments.tscn`.
 * Indentation is **tabs only** in every `.gd` file. Mixed tabs/spaces is a parse error. Check with
   `grep -rnP "^ +\S" Scripts addons`.
+
+### Folder layout (reorganised in session 2; put new files where they belong)
+```
+Assets/
+  Data/dialogue.txt            dialogue database (the tool edits it)
+  Shaders/                     pixel_reveal.gdshader
+  Source/                      .aseprite source files
+  Sprites/Characters/          Hexy, NPC sprites
+  Sprites/Objects/             Objects_Spritesheet (+ _Old: older sheet, the Lamp still uses 3 frames from it)
+  Sprites/Environments/        room/level spritesheets
+  UI/Dialogue/  UI/Phone/      UI art
+  UI/Portraits/                one .png per dialogue expression (Sheets/ = source sheets, ignored by the game)
+Scenes/Characters/  Scenes/Objects/  Scenes/Rooms/  Scenes/UI/
+Scripts/Autoload/              SignalController, GameData, SaveManager
+Scripts/Core/                  GameController, InputController, DialogueController, DialogueParser
+Scripts/Characters/  Scripts/World/ (Room.gd)  Scripts/Objects/  Scripts/UI/
+Tests/                         smoke_test.gd (_tmp/ is created and removed by core_test)
+The Game/<n> - <Name>/         one folder per level (its own scene, level-only scripts and art)
+addons/hexquest_tools/         the editor plugin; its paths are all in hq_config.gd
+```
+Moving files: close the editor (or move them inside the editor, which updates references). From outside, use `git mv`
+(with the `.import` / `.uid` sidecars) and rewrite `res://` paths in .tscn/.gd/.godot/.import files; then run
+`godot --headless --import` twice (the first scan may log stale autoload errors) and the test suites. Watch out for
+case-only renames on Windows (git has `ignorecase` on): go through a temporary name.
 
 ## 3. Architecture (as it is now)
 
 ### Autoloads (order matters, set in `project.godot`)
 `SignalController` (event bus) -> `GameData` (shared state, loads dialogue) -> `SaveManager`.
 
-* `GameData` loads `res://Assets/dialogue.txt` itself in `_ready()` via a **`preload`** of `DialogueParser.gd`
+* `GameData` loads `res://Assets/Data/dialogue.txt` itself in `_ready()` via a **`preload`** of `DialogueParser.gd`
   (not the global class name, so a fresh clone works before Godot builds its class cache).
 * All signals in `SignalController` are declared with parameters and fired with `.emit()`. Never `emit_signal("...")`.
 
@@ -46,10 +71,10 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
 `2` = areas (rooms), `4` = objects (and `Object_Id` areas), `8` = walls.
 
 ### Dialogue
-* Data: `Assets/dialogue.txt`, valid JSON `{"dialogue": [ {...}, ... ]}`.
+* Data: `Assets/Data/dialogue.txt`, valid JSON `{"dialogue": [ {...}, ... ]}`.
 * Entry keys, always in this order: `id`, `tagRequired`, `text`, `expression`, `tagAdd`, then **one of**
   `isEnd: true` / `divert: "<id>"` / `choices: [a, b]` + `choice_0: [ids]` + `choice_1: [ids]`.
-  `expression` is a portrait filename without `.png` in `Assets/ui/Avatars/`, or `null`.
+  `expression` is a portrait filename without `.png` in `Assets/UI/Portraits/`, or `null`.
 * **Rule:** wherever a *list* of ids appears (an object's `dialogue_ids`, a `choice_N`), the game shows the **first**
   id whose `tagRequired` is met (an entry with no `tagRequired` always passes). Anything after an unconditional entry
   can never show.
@@ -88,7 +113,7 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
     can start again. On load the phone is simply on if it has charge, with no animation.
 
 ### Room reveal (hidden until entered, permanent)
-* `Scripts/Room.gd` (`class_name Room`) sits on the room's `Area2D`. `reveal_nodes: Array[NodePath]` lists the room
+* `Scripts/World/Room.gd` (`class_name Room`) sits on the room's `Area2D`. `reveal_nodes: Array[NodePath]` lists the room
   sprite plus every object inside it. Hexy tells the room directly (`area.on_player_entered`) when its position
   moves into that area (point query, only when moving).
 * Hidden state = a **per-room** `ShaderMaterial` using `Assets/Shaders/pixel_reveal.gdshader` (uniforms `reveal`
@@ -97,14 +122,24 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
 * Rooms in The Apartments: `Room1` is built in the scene; `Room2` is an instanced scene (`Scenes/Rooms/Room2.tscn`)
   with "Editable Children" on, which is what lets its `reveal_nodes` override (Lamp2, Chair2) be saved.
 
-### Save/load (`Scripts/SaveManager.gd`)
+### Save/load (`Scripts/Autoload/SaveManager.gd`)
 * One file: `user://savegame.json` (atomic write via temp file + rename). F5 save, F9 load, F6 drain the phone battery one level (debug builds only), F10 delete + new game
   (debug builds only). Autosave on room reveal and on quit. The last save loads automatically on start, **only if it
   belongs to the running scene**.
 * Contract: a node joins group `SaveManager.GROUP` ("persist") and provides `get_save_id()`, `save_state()`,
   `load_state(dict)`. Currently: Hexy, every `Room`, `Lamp`, the phone; plus `GameData.dialogue_tags`.
 * Saving is **off** unless the scene contains a `GameController` node (which calls `SaveManager.register_scene()`).
-  This keeps test scenes from overwriting the real save.
+  This keeps test scenes from overwriting the real save. The main menu calls `unregister_scene()` to turn it off
+  again (otherwise quitting from the menu would save "the menu" as the place to continue).
+* **Main menu** (`Scenes/UI/MainMenuBox.tscn` + `Scripts/UI/MainMenu.gd`, instanced under `MenuLayer` in
+  Main_Menu.tscn): title, New Game, Load Game, styled like the dialogue box (blankballoon 9-slice, flat buttons:
+  white text, yellow when focused/hovered; placeholder art/fonts).
+  * New Game -> `SaveManager.start_new_game(scene)` (`new_game_scene` export, default TheSat): resets GameData and
+    skips the automatic load once. If a save exists it asks first ("overwritten"; No is focused). The old save is
+    only replaced when the new game first saves.
+  * Load Game -> `SaveManager.continue_game()`: opens the scene the save belongs to; its GameController restores the
+    save as usual. Greyed out with no save. E (interact) presses the focused button too; Esc backs out of the question.
+  * Running a level directly (F6 in the editor) still auto-loads that level's save, for testing.
 * `SaveManager.save_path` is a var so tests can redirect it.
 
 ### Editor plugin: `addons/hexquest_tools/`
@@ -143,6 +178,9 @@ rename-id edits `.tscn` files as text and the editor then prompts to reload.
    * HexQuest Tools: room assignment to an instanced room was silently dropped on save (now turns on Editable
      Children, undoably, via `SceneTools.add_make_editable`); the Scene & Rooms tab's room dropdown reset to Room1
      every time the tab was shown again (now kept), and Assign always reports what it did. Regression tests for both.
+   * Later: phone battery levels / power off-on / charging sweep (section 3), then the folder reorganisation
+     (section 2). Removed: a committed Visual Studio cache (`Scripts/.vs`), `*.png~` backups, an unused old
+     `Scenes/Objects/Lamp.gd`, and old manual test scenes (`Tests/test.tscn`, `TestDialogue.*`).
 
 ## 5. Gotchas learned the hard way (please don't relearn these)
 
@@ -157,6 +195,9 @@ rename-id edits `.tscn` files as text and the editor then prompts to reload.
   to see inside instanced scenes.
 * New `class_name` scripts are only registered in `.godot/global_script_class_cache.cfg` after an editor/import scan.
   Autoload scripts must not depend on that cache (hence the `preload` in `GameData`).
+* A button press that changes scene takes the pressing node out of the tree immediately: in an input handler, call
+  `set_input_as_handled()` (and anything else needing `get_viewport()`) BEFORE emitting `pressed`. Tests should
+  press buttons with real input events (`root.push_input`), not `pressed.emit()`, to catch this.
 * `AnimatedSprite2D.play(name)` on the animation it's already on carries on from the current frame; parked on the
   last frame of a non-looping animation, it "plays" nothing. Rewind first (`set_frame_and_progress(0, 0.0)`); see
   `Phone._play_from_start`. Tests of an animation should check it starts at frame 0, not just `is_playing()`.
@@ -209,9 +250,12 @@ output). First open the project in the editor once, or run `godot --headless --i
 godot --headless -s res://Tests/smoke_test.gd                              # reveal, interactions, dialogue, save/load
 godot --headless -s res://addons/hexquest_tools/tests/core_test.gd         # DialogueDB, validator, factory, scene tools
 godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd           # drives the tool panels
+godot --headless -s res://Tests/menu_test.gd                               # main menu: New Game / Load Game
 ```
 Each prints PASS/FAIL lines and exits non-zero on failure. All three pass on Godot 4.7.2 as of session 2
-(smoke 93, core 80, ui 71 checks). The smoke test's battery flow waits on real animation time (sped up 40x), so it's a few seconds slower. One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
+(smoke 93, core 80, ui 71, menu 23 checks). `menu_test` registers an `OS.add_logger()` Logger and fails on any
+engine/script error printed during the run (script errors don't stop a test on their own); worth copying into the
+other suites. The smoke test's battery flow waits on real animation time (sped up 40x), so it's a few seconds slower. One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
 deliberately writes a corrupt save). Tests use their own save/dialogue files and clean up after themselves.
 
 ## 8. Known issues and data problems
@@ -232,8 +276,8 @@ deliberately writes a corrupt save). Tests use their own save/dialogue files and
 ## 9. Suggested next steps (pick with the user)
 1. Decide what sets `FIRST_SOUL_COMPLETED`. Battery follow-up: decide what drains it (call
    `Phone.add_charge(-n)`; levels, tags, power-off and saving are already handled).
-2. Main menu / Continue button using `SaveManager.has_save()` and `load_game()` (scene-change loading is
-   implemented but only lightly exercised).
+2. Main menu follow-ups: real art/font for the menu box, a Quit button, a way back to the menu from the game
+   (call `SaveManager.save_game()` first, then change scene), and showing the save's "saved at" time on Load Game.
 3. More rooms and objects using the Objects tab; wire `TheSat` into the same flow if it should share the save.
 4. Save slots, and showing the "saved at" timestamp (already stored in the save file).
 5. Plugin ideas: undo for the dialogue tab, a dialogue graph view, >2 choices (needs a DialogueBox change),
@@ -268,7 +312,7 @@ Save the block below as `CLAUDE.md` in the repo root. Claude Code reads it autom
 ## Architecture in one paragraph
 Autoloads: SignalController -> GameData -> SaveManager. E key -> `interaction_check` -> `Hexy.interact_nearby()` finds an
 `Object_Id` Area2D (physics layer 4) and calls `.interact()` on its parent (all extend `Interactable`). Dialogue lives in
-`Assets/dialogue.txt` (first entry in an id list whose `tagRequired` is met wins). Rooms (`Room.gd` on an Area2D, layer 2)
+`Assets/Data/dialogue.txt` (first entry in an id list whose `tagRequired` is met wins). Rooms (`Room.gd` on an Area2D, layer 2)
 hide `reveal_nodes` behind a per-room pixel-dissolve shader until Hexy enters, and stay revealed. Saving is one JSON
 file via `SaveManager`; saveable nodes join group "persist" and implement `get_save_id/save_state/load_state`; a scene
 only saves if it contains a `GameController`.
@@ -277,6 +321,7 @@ only saves if it contains a `GameController`.
     godot --headless -s res://Tests/smoke_test.gd
     godot --headless -s res://addons/hexquest_tools/tests/core_test.gd
     godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd
+    godot --headless -s res://Tests/menu_test.gd
 (One "save file is corrupt" error line in smoke_test is expected. On Windows, see HANDOFF.md section 6 for running
 the GUI Godot build with --log-file and a timeout.) In `-s` test scripts, fetch autoloads via
 `root.get_node(...)`, use `root.push_input()` for input, and set `current_scene`.
