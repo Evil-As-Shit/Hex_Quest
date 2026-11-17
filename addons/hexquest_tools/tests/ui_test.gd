@@ -158,15 +158,20 @@ func _dialogue_tab(main: Control) -> void:
 	dlg.popup_for("NPC", "witch_happy")
 	dlg._script.text = "[witch_stare] First\nSecond\n# comment\nThird"
 	dlg._update_summary()
-	check(dlg._summary.text.contains("3 lines") and dlg._summary.text.contains("NPC012") and not dlg.get_ok_button().disabled, "dialog previews the ids it will create (%s)" % dlg._summary.text)
+	# the next free ids come from the data (it grows), not hard-coded numbers
+	var c1: String = db.next_id("NPC")
+	var c_num := c1.substr(3).to_int()
+	var c2 := "NPC%03d" % (c_num + 1)
+	var c3 := "NPC%03d" % (c_num + 2)
+	check(dlg._summary.text.contains("3 lines") and dlg._summary.text.contains(c1) and not dlg.get_ok_button().disabled, "dialog previews the ids it will create (%s)" % dlg._summary.text)
 	dlg._requires.text = "REQ_T"
 	dlg._adds.text = "ADD_T"
 	dlg._create()
 	dlg.hide() # (pressing OK would have closed it; otherwise it stays an exclusive popup)
 	await frames()
-	check(db.get_entry("NPC012")["tagRequired"] == "REQ_T" and db.get_entry("NPC014")["tagAdd"] == "ADD_T", "created chain carries both tags")
-	check(db.get_entry("NPC013")["expression"] == "witch_happy" and db.get_entry("NPC012")["expression"] == "witch_stare", "per-line and default portraits both work")
-	check(tab.selected_id == "NPC012", "the new conversation is selected for editing")
+	check(db.get_entry(c1).get("tagRequired") == "REQ_T" and db.get_entry(c3).get("tagAdd") == "ADD_T", "created chain carries both tags")
+	check(db.get_entry(c2)["expression"] == "witch_happy" and db.get_entry(c1)["expression"] == "witch_stare", "per-line and default portraits both work")
+	check(tab.selected_id == c1, "the new conversation is selected for editing")
 
 	# saving
 	check(not db.dirty and main._save.disabled, "creating a conversation saves the file straight away (scenes will point at it)")

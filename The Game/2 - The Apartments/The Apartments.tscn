@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" uid="uid://basmd6d362dvj" path="res://Scenes/Rooms/Room2.tscn" id="12_0ahgj"]
 [ext_resource type="PackedScene" uid="uid://dudnnb5m3khpw" path="res://Scenes/Objects/Table.tscn" id="12_tn3g0"]
 [ext_resource type="PackedScene" uid="uid://bvbji3l8uqwba" path="res://Scenes/Objects/Entryway1.tscn" id="13_0ahgj"]
+[ext_resource type="PackedScene" uid="uid://c2kvinhmc083e" path="res://Scenes/Objects/Couch_Phone.tscn" id="15_3rv4m"]
 
 [node name="The Apartments" type="Node2D" unique_id=1806015723]
 
@@ -110,7 +111,7 @@ position = Vector2(7, -2)
 polygon = PackedVector2Array(-87, -101, -62.800003, -103, -62.800003, -101, -86, -99, -107, -55, 8, -45, 33, -107, -47.800003, -102, -47.800003, -103, 36, -109, 9, -43, -110, -54)
 
 [node name="Room2" parent="YSort/Room2" index="2" unique_id=250187019]
-reveal_nodes = Array[NodePath]([NodePath("../Room2_Sprite"), NodePath("../../Chair2"), NodePath("../../Lamp2")])
+reveal_nodes = Array[NodePath]([NodePath("../Room2_Sprite"), NodePath("../../Chair2"), NodePath("../../Lamp2"), NodePath("../../Couch_Phone")])
 
 [node name="Lamp" parent="YSort" unique_id=1619785801 instance=ExtResource("6_eaxnm")]
 position = Vector2(-31, -50)
@@ -133,5 +134,8 @@ dialogue_ids = Array[String](["NPC002", "NPC000"])
 
 [node name="InputController" type="Node" parent="." unique_id=1791381247]
 script = ExtResource("8_h1r5b")
+
+[node name="Couch_Phone" parent="YSort" unique_id=707129357 instance=ExtResource("15_3rv4m")]
+position = Vector2(32, 5)
 
 [editable path="YSort/Room2"]

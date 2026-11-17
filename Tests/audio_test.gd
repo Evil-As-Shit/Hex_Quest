@@ -140,6 +140,8 @@ func _run() -> void:
 	game_data.time_dialogue = 0.025
 
 	print("\n== Phone ==")
+	game_data.add_tag("PHONE_FOUND") # Hexy has the phone from here on
+	await create_timer(ph.FOUND_RISE_TIME + 0.1).timeout
 	played.clear()
 	signals.toggle_phone.emit()
 	check(count(&"phone_open") == 1, "opening the phone: phone_open")

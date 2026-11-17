@@ -1,8 +1,16 @@
 extends Control
 
 const POS_SHOWN := Vector2(15, 180)
-const POS_HIDDEN := Vector2(15, 645)
+const POS_HIDDEN := Vector2(15, 645) # resting: just the top peeks up from the bottom of the screen
+const POS_OFFSCREEN := Vector2(15, 760) # fully below the 720 px screen (before the phone is found)
 const SLIDE_TIME := 0.35
+const FOUND_RISE_TIME := 0.8
+
+# --- Finding the phone ---
+# Hexy doesn't have the phone until "Here it is!!!!!" (the couch in Room2) adds PHONE_FOUND. Until then the
+# phone is off-screen and Q does nothing. When the tag is added it rises from below the screen to its resting
+# spot, dead.
+const TAG_FOUND := "PHONE_FOUND"
 
 # --- Battery ---
 # Charge levels, lowest to highest (what the Battery sprite shows):
@@ -14,7 +22,8 @@ const SLIDE_TIME := 0.35
 # covers the whole battery (charge_step_frame) so the change is hidden. When full, the loop finishes and the
 # held "Charging phone..." line is released so the dialogue moves on to "Phone is Charged!!!".
 # The level is saved (this node is in the "persist" group). Tags mirror it for dialogue:
-# PHONE_CHARGE_ZERO while dead, PHONE_CHARGE_FULL while full, PHONE_CHARGE only while charging.
+# PHONE_CHARGE_ZERO while Hexy has the phone and it's dead (so NPCs only talk about charging once it's found),
+# PHONE_CHARGE_FULL while full, PHONE_CHARGE only while charging.
 const TAG_CHARGING := "PHONE_CHARGE"
 const TAG_FULL := "PHONE_CHARGE_FULL"
 const TAG_DEAD := "PHONE_CHARGE_ZERO"
@@ -46,6 +55,8 @@ var is_powered_on: bool = true
 var _powering_on := false # the turn-on animation is playing
 var _held_dialogue := false # true while the "Charging phone..." line is waiting on us
 var _tween: Tween
+## False until the phone is found (PHONE_FOUND): hidden, and Q does nothing.
+var has_phone: bool = false
 
 
 func _ready() -> void:
@@ -78,14 +89,51 @@ func add_charge(amount: int) -> void:
 
 # Debug builds only: F6 (input action "debug_drain_battery") drains the battery by one level.
 func _input(event: InputEvent) -> void:
-	if OS.is_debug_build() and event.is_action_pressed("debug_drain_battery") and battery_state != Battery.CHARGING:
+	if OS.is_debug_build() and event.is_action_pressed("debug_drain_battery") and has_phone and battery_state != Battery.CHARGING:
 		add_charge(-1)
+
+
+# ---- finding the phone ----
+
+## Found during play: the phone appears dead and rises from below the screen to its resting spot.
+func _on_found() -> void:
+	has_phone = true
+	_stop_charging()
+	_show_level(LEVEL_DEAD, false) # dead when found
+	_set_powered(false)
+	visible = true
+	position = POS_OFFSCREEN
+	if _tween:
+		_tween.kill()
+	_tween = create_tween().set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_tween.tween_property(self, "position", POS_HIDDEN, FOUND_RISE_TIME)
+
+
+## Shows or hides the phone straight away from the PHONE_FOUND tag (startup, load, new game).
+func _apply_found_from_tags() -> void:
+	has_phone = GameData.has_tag(TAG_FOUND)
+	visible = has_phone
+	if not has_phone:
+		if GameData.is_using_phone:
+			GameData.is_using_phone = false
+		if _tween:
+			_tween.kill()
+		position = POS_OFFSCREEN
+	elif not GameData.is_using_phone:
+		position = POS_HIDDEN
 
 
 # ---- battery ----
 
 func _on_tag_added(tag: String) -> void:
+	if tag == TAG_FOUND:
+		if not has_phone:
+			_on_found()
+		return
 	if tag != TAG_CHARGING:
+		return
+	if not has_phone: # can't charge a phone Hexy doesn't have
+		GameData.remove_tag(TAG_CHARGING)
 		return
 	if charge >= max_charge:
 		GameData.remove_tag(TAG_CHARGING) # nothing to do
@@ -96,6 +144,7 @@ func _on_tag_added(tag: String) -> void:
 ## After a load or new game: jump straight to the right picture, no animation. (A saved level, if
 ## any, is applied right after this by load_state.)
 func _show_battery_from_tags() -> void:
+	_apply_found_from_tags() # first: the dead tag depends on whether Hexy has the phone
 	_stop_charging()
 	GameData.remove_tag(TAG_CHARGING) # a charge cut short (quit mid-charge) isn't resumed
 	_show_level(max_charge if GameData.has_tag(TAG_FULL) else LEVEL_DEAD, false)
@@ -160,7 +209,7 @@ func _show_level(level: int, animate: bool) -> void:
 		battery_sprite.pause()
 	if battery_state != Battery.CHARGING:
 		_update_state()
-	if charge == LEVEL_DEAD:
+	if charge == LEVEL_DEAD and has_phone:
 		GameData.add_tag(TAG_DEAD)
 	else:
 		GameData.remove_tag(TAG_DEAD)
@@ -253,6 +302,8 @@ func _set_ui_enabled(on: bool) -> void:
 # ---- opening / closing ----
 
 func phone() -> void:
+	if not has_phone: # not found yet: Q does nothing
+		return
 	if not GameData.is_using_phone:
 		GameData.is_using_phone = true
 		AudioManager.play_sfx(&"phone_open")

@@ -84,6 +84,7 @@
 		},
 		{
 			"id": "ITM010",
+			"tagRequired": "PHONE_FOUND",
 			"text": "Would you like to charge your phone?",
 			"expression": null,
 			"choices": [
@@ -122,6 +123,12 @@
 			"id": "ITM014",
 			"tagRequired": "PHONE_CHARGE_FULL",
 			"text": "Phone is already charged!",
+			"expression": null,
+			"isEnd": true
+		},
+		{
+			"id": "ITM015",
+			"text": "A phone charger... not much use without my phone.",
 			"expression": null,
 			"isEnd": true
 		},
@@ -246,6 +253,38 @@
 			"id": "TABLE000",
 			"text": "Sure is a table...",
 			"expression": "witch_smug",
+			"isEnd": true
+		},
+		{
+			"id": "NPC012",
+			"text": "Maybe it fell in the couch???",
+			"expression": "witch_stare",
+			"divert": "NPC013"
+		},
+		{
+			"id": "NPC013",
+			"text": "...",
+			"expression": "witch_upset",
+			"divert": "NPC014"
+		},
+		{
+			"id": "NPC014",
+			"text": "...",
+			"expression": "witch_upset",
+			"divert": "NPC015"
+		},
+		{
+			"id": "NPC015",
+			"text": "Here it is!!!!!",
+			"expression": "witch_openhappy",
+			"tagAdd": "PHONE_FOUND",
+			"isEnd": true
+		},
+		{
+			"id": "NPC016",
+			"tagRequired": "PHONE_FOUND",
+			"text": "Nothing else in here but crumbs.",
+			"expression": "witch_stare",
 			"isEnd": true
 		}
 	]

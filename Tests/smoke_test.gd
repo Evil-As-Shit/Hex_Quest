@@ -143,7 +143,7 @@ func _run() -> void:
 	check(hexy()._area_node != null and hexy()._area_node.name == "Balcony", "Hexy starts in the Balcony area")
 	# a new game starts with a dead phone, and the phone keeps PHONE_CHARGE_ZERO set while it is
 	if need(phone(), "the phone (Phone.gd under UI)"):
-		check(phone().battery_state == 0 and game_data.has_tag("PHONE_CHARGE_ZERO"), "fresh scene: phone battery is DEAD and PHONE_CHARGE_ZERO is set")
+		check(not phone().has_phone and not phone().visible and not game_data.has_tag("PHONE_CHARGE_ZERO"), "fresh scene: no phone yet (hidden, and no 'dead phone' tag)")
 
 	print("\n== Room reveal ==")
 	var start_pos: Vector2 = hexy().global_position
@@ -185,8 +185,7 @@ func _run() -> void:
 
 	await stop_scene()
 	game_data.reset()
-	# (only the phone's dead-battery tag may be re-added by a reset)
-	check(not game_data.has_tag("TEST_TAG") and game_data.dialogue_tags.keys().all(func(t): return t == "PHONE_CHARGE_ZERO"), "GameData reset clears tags")
+	check(game_data.dialogue_tags.is_empty(), "GameData reset clears tags (%s)" % [game_data.dialogue_tags.keys()])
 	await start_scene() # a brand new session: everything is back to defaults...
 	if not (need(hexy(), "Hexy (after restart)") and need(room(), "Room1 (after restart)") and need(npc(), "the NPC (after restart)") and need(scene.get_node_or_null("YSort/Lamp"), "Lamp (after restart)") and need(scene.get_node_or_null("InputController"), "InputController")):
 		finish()
@@ -262,15 +261,67 @@ func _run() -> void:
 	await create_timer(0.7).timeout
 	check(not game_data.flag_waiting_dialogue_next, "closing mid-typing leaves no stale callback")
 
-	print("\n== Phone battery ==")
 	var ph := phone()
 	if need(ph, "the phone (Phone.gd under UI)"):
 		var sprite: AnimatedSprite2D = ph.battery_sprite
 		var overlay: AnimatedSprite2D = ph.charging_sprite
 		var screen: AnimatedSprite2D = ph.screen
 		var top_frame := sprite.sprite_frames.get_frame_count("Charges") - 1
-		game_data.reset() # a fresh game: dead battery, phone off
-		check(ph.battery_state == 0 and ph.charge == 0 and sprite.animation == &"Ded" and game_data.has_tag("PHONE_CHARGE_ZERO"), "reset: battery dead ('Ded'), PHONE_CHARGE_ZERO set")
+		print("\n== Finding the phone ==")
+		game_data.reset() # a fresh game: Hexy doesn't have the phone
+		await frames(2)
+		check(not ph.has_phone and not ph.visible and ph.position == ph.POS_OFFSCREEN, "no phone yet: hidden below the screen")
+		signals.toggle_phone.emit()
+		check(not game_data.is_using_phone, "Q does nothing without the phone")
+		var npc_node: Node = null # the character who asks about charging (has NPC002 in its list)
+		for n in scene.get_node("YSort").get_children():
+			var ids = n.get("dialogue_ids")
+			if ids is Array and (ids as Array).has("NPC002"):
+				npc_node = n
+		check(npc_node != null, "found the character with the charging line")
+		if npc_node != null:
+			dialogue_controller.object_interacted(npc_node.dialogue_ids)
+			check(game_data.dialogue_id != "NPC002", "the character doesn't mention charging yet (says %s)" % game_data.dialogue_id)
+			signals.close_dialogue.emit()
+		var couch: Node = scene.get_node_or_null("YSort/Couch_Phone")
+		if need(couch, "the couch under YSort (YSort/Couch_Phone)"):
+			var room2: Node = scene.get_node_or_null("YSort/Room2/Room2")
+			check(room2 != null and room2.reveal_nodes.any(func(p): return room2.get_node_or_null(p) == couch), "the couch hides with Room2 until Hexy enters")
+			dialogue_controller.object_interacted(couch.dialogue_ids)
+			check(game_data.dialogue_id == "NPC012", "the couch: 'Maybe it fell in the couch???' (%s)" % game_data.dialogue_id)
+			for i in 3:
+				dialogue_controller.next()
+			check(game_data.dialogue_id == "NPC015", "...then 'Here it is!!!!!' (%s)" % game_data.dialogue_id)
+		else:
+			game_data.add_tag("PHONE_FOUND")
+		check(game_data.has_tag("PHONE_FOUND"), "'Here it is!!!!!' sets PHONE_FOUND")
+		check(ph.has_phone and ph.visible and ph.position.y > ph.POS_HIDDEN.y, "found: the phone appears, starting below its resting spot")
+		check(ph.charge == 0 and sprite.animation == &"Ded" and not ph.is_powered_on, "...dead")
+		await create_timer(ph.FOUND_RISE_TIME + 0.2).timeout
+		check(ph.position.is_equal_approx(ph.POS_HIDDEN), "...and rises to its resting spot (%s)" % [ph.position])
+		check(game_data.has_tag("PHONE_CHARGE_ZERO"), "now PHONE_CHARGE_ZERO is set (Hexy has a dead phone)")
+		signals.close_dialogue.emit()
+		if couch != null:
+			dialogue_controller.object_interacted(couch.dialogue_ids)
+			check(game_data.dialogue_id == "NPC016", "the couch again: the crumbs line, not the search (%s)" % game_data.dialogue_id)
+			signals.close_dialogue.emit()
+		if npc_node != null:
+			dialogue_controller.object_interacted(npc_node.dialogue_ids)
+			check(game_data.dialogue_id == "NPC002", "...so the character asks about charging (%s)" % game_data.dialogue_id)
+			signals.close_dialogue.emit()
+		signals.toggle_phone.emit()
+		check(game_data.is_using_phone, "Q opens the phone now")
+		signals.toggle_phone.emit()
+		await create_timer(ph.SLIDE_TIME + 0.1).timeout
+		game_data.load_state({"dialogue_tags": []})
+		check(not ph.has_phone and not ph.visible, "loading a save from before it was found hides it again")
+		game_data.load_state({"dialogue_tags": ["PHONE_FOUND"]})
+		check(ph.has_phone and ph.visible and ph.position.is_equal_approx(ph.POS_HIDDEN), "loading a save after it was found shows it at once, no rise")
+
+		print("\n== Phone battery ==")
+		game_data.reset()
+		game_data.add_tag("PHONE_FOUND")
+		check(ph.battery_state == 0 and ph.charge == 0 and sprite.animation == &"Ded" and game_data.has_tag("PHONE_CHARGE_ZERO"), "found phone: battery dead ('Ded'), PHONE_CHARGE_ZERO set")
 		check(screen.sprite_frames.has_animation(ph.ANIM_OFF) and screen.sprite_frames.has_animation(ph.ANIM_ON), "Phone_Bool has the turn-off/on animations Phone.gd uses (%s, %s)" % [ph.ANIM_OFF, ph.ANIM_ON])
 		check(not ph.is_powered_on and screen.visible and screen.animation == ph.ANIM_OFF and ph.home.disabled, "dead phone is switched off: black screen, buttons disabled")
 		check(ph.max_charge == 1 + sprite.sprite_frames.get_frame_count("Charges"), "levels: dead, dying, then one per 'Charges' frame (max %d)" % ph.max_charge)
@@ -280,11 +331,11 @@ func _run() -> void:
 		signals.toggle_phone.emit()
 		check(not game_data.is_using_phone, "...and closes")
 
-		game_data.load_state({"dialogue_tags": ["PHONE_CHARGE", "PHONE_CHARGE_FULL"]})
+		game_data.load_state({"dialogue_tags": ["PHONE_FOUND", "PHONE_CHARGE", "PHONE_CHARGE_FULL"]})
 		check(ph.battery_state == 3 and ph.charge == ph.max_charge and not game_data.has_tag("PHONE_CHARGE_ZERO"), "loading charged tags: battery FULL")
 		check(sprite.animation == &"Charges" and sprite.frame == top_frame, "FULL battery shows the last 'Charges' frame (frame %d)" % sprite.frame)
 		check(ph.is_powered_on and not screen.visible and not ph.home.disabled, "a charged phone loads switched on")
-		game_data.load_state({"dialogue_tags": ["PHONE_CHARGE"]}) # saved mid-charge (quit while charging)
+		game_data.load_state({"dialogue_tags": ["PHONE_FOUND", "PHONE_CHARGE"]}) # saved mid-charge (quit while charging)
 		check(ph.battery_state == 0 and not game_data.has_tag("PHONE_CHARGE"), "a save from mid-charge loads as dead, ready to charge again")
 		ph.load_state({"charge": 5}) # the phone's own save data
 		check(ph.charge == 5 and sprite.animation == &"Charges" and sprite.frame == 3 and ph.is_powered_on, "a saved level 5 loads as 'Charges' frame 3, phone on")
@@ -323,6 +374,10 @@ func _run() -> void:
 		var charger: Node = scene.get_node_or_null("YSort/Charger")
 		if need(charger, "YSort/Charger"):
 			game_data.reset()
+			dialogue_controller.object_interacted(charger.dialogue_ids)
+			check(game_data.dialogue_id != "ITM010", "no phone yet: the charger doesn't offer to charge (%s)" % game_data.dialogue_id)
+			signals.close_dialogue.emit()
+			game_data.add_tag("PHONE_FOUND")
 			dialogue_controller.object_interacted(charger.dialogue_ids)
 			check(game_data.dialogue_id == "ITM010", "dead phone: the charger asks to charge (%s)" % game_data.dialogue_id)
 			await create_timer(1.2).timeout # let the question finish typing

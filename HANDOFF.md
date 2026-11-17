@@ -104,6 +104,14 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
 * **Dialogue hold:** `GameData.hold_dialogue()` keeps the current (non-choice) line on screen: interact can't skip it.
   `GameData.release_dialogue()` emits `SignalController.dialogue_released` and `DialogueBox` moves the line on (to its
   divert, or closes it). Closing dialogue or `reset()` clears a hold. Use it for any line that waits on something.
+* **Finding the phone:** Hexy has no phone until `PHONE_FOUND`, added by `NPC015` "Here it is!!!!!" at the end of
+  the couch search (`Scenes/Objects/Couch_Phone.tscn` in Room2: `["NPC016", "NPC012"]`, NPC016 = "Nothing else in
+  here but crumbs." placeholder once found). Before that `Phone.has_phone` is false: the phone is invisible at
+  `POS_OFFSCREEN` (below the screen), Q does nothing, charging/F6 are ignored, and `PHONE_CHARGE_ZERO` is NOT set
+  (it means "Hexy has a dead phone"), so the character's charging line NPC002 only appears after the find. On the
+  tag the phone appears dead and tweens from `POS_OFFSCREEN` to its resting `POS_HIDDEN` (`FOUND_RISE_TIME` 0.8 s);
+  a load just shows/hides it. The charger: ITM010 requires PHONE_FOUND; before it, ITM015 "A phone charger... not
+  much use without my phone." (placeholder). Tests that use the phone must add `PHONE_FOUND` first.
 * **Phone battery** (`Scripts/UI/Phone.gd`). Nodes under `UI/PhoneControl`: `Battery` (level), `Battery_Charging`
   (the "Charging" animation drawn on top, only while charging) and `Phone_Bool` (covers the screen while the phone
   is off or turning on).
@@ -281,7 +289,7 @@ godot --headless -s res://Tests/transition_test.gd                         # sat
 godot --headless -s res://Tests/audio_test.gd                              # when each sound plays
 ```
 Each prints PASS/FAIL lines and exits non-zero on failure. All three pass on Godot 4.7.2 as of session 2
-(smoke 93, core 80, ui 71, menu 23, transition 22, audio 38 checks). In a `-s` script, autoloads' `_ready()`
+(smoke 112, core 80, ui 71, menu 23, transition 22, audio 38 checks). In a `-s` script, autoloads' `_ready()`
 runs after `_initialize()`: await a frame before using their internals. `menu_test`, `transition_test` and
 `audio_test` register an `OS.add_logger()` Logger and fails on any
 engine/script error printed during the run (script errors don't stop a test on their own); worth copying into the
@@ -292,7 +300,9 @@ deliberately writes a corrupt save). Tests use their own save/dialogue files and
 * ~~`NPC005 -> NPC006`~~ fixed in the data (the Problems tab shows 0 errors).
 * `FIRST_SOUL_COMPLETED` (ITM021, NPC010) is required but never set, so those lines never show.
   `PHONE_CHARGE_ZERO` is set by `Phone.gd` (the Problems tab still warns about it; that warning is expected).
-* The tests reference current node names (`Charater_Test`, `Table`, `Room2`); renaming those means updating tests.
+* The tests reference current node names (`Charater_Test`, `Table`, `Room2`, `Couch_Phone`); renaming those means
+  updating tests. Don't hard-code "next free dialogue id" in tests: the data grows (core/ui tests derive it).
+* The couch's dialogue ids use the `NPC` prefix (NPC012-016) although it's an object; fine, just a naming note.
 * Two Godot-generated `.import` files are untracked in the repo (`hexy stand.png.import`,
   `witch_confused.png.import`). Commit them or ignore them, the user hasn't decided.
 * Dialogue-tab edits (delete, duplicate, text) are **not undoable**; Reload from disk or git is the escape hatch.

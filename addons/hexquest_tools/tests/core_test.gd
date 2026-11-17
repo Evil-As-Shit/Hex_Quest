@@ -84,7 +84,16 @@ func _test_db() -> void:
 				break
 	check(same, "saving an untouched database reproduces the file byte-for-byte")
 
-	check(db.next_id("NPC") == "NPC012", "next NPC id is NPC012 (%s)" % db.next_id("NPC"))
+	# the expected next ids come from the data (it grows), not hard-coded numbers
+	var npc_max := -1
+	for e in db.entries:
+		var eid := str(e["id"])
+		if eid.begins_with("NPC") and eid.substr(3).is_valid_int():
+			npc_max = maxi(npc_max, eid.substr(3).to_int())
+	var n1 := "NPC%03d" % (npc_max + 1)
+	var n2 := "NPC%03d" % (npc_max + 2)
+	var n3 := "NPC%03d" % (npc_max + 3)
+	check(db.next_id("NPC") == n1, "next NPC id is one past the highest, %s (%s)" % [n1, db.next_id("NPC")])
 	check(db.next_id("SAT") == "SAT012", "next SAT id skips the gap and uses the max (%s)" % db.next_id("SAT"))
 	check(db.next_id("BRAND") == "BRAND000", "a new prefix starts at 000")
 	check(DialogueDB.prefix_of("NPC012") == "NPC" and DialogueDB.prefix_of("A_B_7") == "A_B_", "prefix_of")
@@ -99,11 +108,11 @@ func _test_db() -> void:
 	var lines := DialogueDB.parse_script("# comment\n[witch_happy] Hello there!\n\nSecond line\n[witch_stare]   Third")
 	check(lines.size() == 3 and lines[0]["expression"] == "witch_happy" and lines[1]["expression"] == null and lines[2]["text"] == "Third", "parse_script")
 	var ids := db.create_conversation(lines, "NPC", "NEEDS_X", "DID_Y", "witch_smug")
-	check(ids == PackedStringArray(["NPC012", "NPC013", "NPC014"]), "create_conversation ids are consecutive %s" % [ids])
-	var first := db.get_entry("NPC012")
-	var last := db.get_entry("NPC014")
-	check(first["divert"] == "NPC013" and first["tagRequired"] == "NEEDS_X", "first line diverts and carries the required tag")
-	check(db.get_entry("NPC013")["expression"] == "witch_smug", "default portrait applies to lines without one")
+	check(ids == PackedStringArray([n1, n2, n3]), "create_conversation ids are consecutive %s" % [ids])
+	var first := db.get_entry(n1)
+	var last := db.get_entry(n3)
+	check(first.get("divert") == n2 and first.get("tagRequired") == "NEEDS_X", "first line diverts and carries the required tag")
+	check(db.get_entry(n2)["expression"] == "witch_smug", "default portrait applies to lines without one")
 	check(last["isEnd"] == true and last["tagAdd"] == "DID_Y" and not last.has("divert"), "last line ends and adds the tag")
 	check(db.dirty, "database is marked dirty")
 
