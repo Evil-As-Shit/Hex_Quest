@@ -81,14 +81,12 @@ region_enabled = true
 region_rect = Rect2(96, 0, 144, 216)
 
 [node name="Room1_Collision" type="CollisionPolygon2D" parent="YSort/Room1" unique_id=421506056]
-visible = false
 position = Vector2(-58, 63)
-polygon = PackedVector2Array(13, -3, 33, -2, 57, -62, -62, -54, -71, -35, -72, -35, -62, -55, 58, -63, 34, 0, 13, -1)
+polygon = PackedVector2Array(14, -3, 33, -2, 57, -62, -62, -54, -71, -35, -72, -35, -62, -55, 58, -63, 34, 0, 14, -1)
 
 [node name="Room1_Collision2" type="CollisionPolygon2D" parent="YSort/Room1" unique_id=229243155]
-visible = false
 position = Vector2(-58, 63)
-polygon = PackedVector2Array(0, -3, 0, -1, -86, -8, -78, -25, -77, -25, -84, -9)
+polygon = PackedVector2Array(-1, -3, -1, -1, -86, -8, -78, -25, -77, -25, -84, -9)
 
 [node name="Room1" type="Area2D" parent="YSort/Room1" unique_id=1988058605]
 visible = false
@@ -107,6 +105,9 @@ position = Vector2(8, -3)
 
 [node name="Room2" parent="YSort" unique_id=442149642 instance=ExtResource("12_0ahgj")]
 position = Vector2(7, -2)
+
+[node name="Room2_Collision" parent="YSort/Room2" index="1" unique_id=887293770]
+polygon = PackedVector2Array(-87, -101, -62.800003, -103, -62.800003, -101, -86, -99, -107, -55, 8, -45, 33, -107, -47.800003, -102, -47.800003, -103, 36, -109, 9, -43, -110, -54)
 
 [node name="Room2" parent="YSort/Room2" index="2" unique_id=250187019]
 reveal_nodes = Array[NodePath]([NodePath("../Room2_Sprite"), NodePath("../../Chair2"), NodePath("../../Lamp2")])
