@@ -34,10 +34,19 @@ func _ready() -> void:
 	
 
 
+## Systems that care about a tag (the phone battery, for example) listen to
+## SignalController.tag_added instead of being special-cased here.
 func add_tag(tag: String) -> void:
-	if tag == "PHONE_CHARGE":
-		SignalController.battery_charge.emit(0)
+	if dialogue_tags.has(tag):
+		return
 	dialogue_tags[tag] = true
+	SignalController.tag_added.emit(tag)
+
+
+## For tags that describe a state that can end (like PHONE_CHARGE_ZERO), not a one-off event.
+func remove_tag(tag: String) -> void:
+	if dialogue_tags.erase(tag):
+		SignalController.tag_removed.emit(tag)
 
 
 func has_tag(tag: String) -> bool:
@@ -52,6 +61,7 @@ func load_state(data: Dictionary) -> void:
 	dialogue_tags.clear()
 	for tag in data.get("dialogue_tags", []):
 		dialogue_tags[str(tag)] = true
+	SignalController.tags_loaded.emit()
 
 
 ## Back to a fresh new game (dialogue loaded, nothing unlocked).
@@ -65,3 +75,4 @@ func reset() -> void:
 	is_using_phone = false
 	is_in_dialogue = false
 	move_input_vector = Vector2.ZERO
+	SignalController.tags_loaded.emit()

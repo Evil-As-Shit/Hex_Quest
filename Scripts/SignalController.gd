@@ -15,7 +15,11 @@ signal hexy_location(area_name: String)
 signal interaction_check
 signal room_revealed(room_id: StringName)
 
+# Tags (GameData.dialogue_tags)
+signal tag_added(tag: String) # a new tag was just unlocked during play
+signal tag_removed(tag: String)
+signal tags_loaded # every tag was replaced at once (save loaded, or new game)
+
 # Phone
 signal toggle_phone
 signal phone_interacted
-signal battery_charge(amount: int)

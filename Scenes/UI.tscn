@@ -146,6 +146,9 @@ animations = [{
 "texture": SubResource("AtlasTexture_8blbl")
 }, {
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_qvwwb")
+}, {
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_bb0on")
 }, {
 "duration": 1.0,
@@ -156,9 +159,6 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_tb15e")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_qvwwb")
 }],
 "loop": 1,
 "name": &"Charges",
@@ -298,11 +298,10 @@ script = ExtResource("2_xrmwd")
 texture = ExtResource("1_o7cmk")
 centered = false
 
-[node name="Charger" type="AnimatedSprite2D" parent="PhoneControl" unique_id=330369963]
+[node name="Battery" type="AnimatedSprite2D" parent="PhoneControl" unique_id=330369963]
 position = Vector2(270, 30)
 sprite_frames = SubResource("SpriteFrames_ps246")
-animation = &"Charging"
-autoplay = "Ded"
+animation = &"Ded"
 
 [node name="Options" type="Button" parent="PhoneControl" unique_id=728114529]
 layout_mode = 0
