@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c2g3eik56y8v7"]
 
 [ext_resource type="Script" uid="uid://ddwyp0jqjm68j" path="res://Scripts/Objects/NPC.gd" id="1_sxiu0"]
-[ext_resource type="Texture2D" uid="uid://dfqcy8tavfkwd" path="res://Assets/Sprites/npc1.png" id="2_6xjyj"]
+[ext_resource type="Texture2D" uid="uid://dfqcy8tavfkwd" path="res://Assets/Sprites/Characters/npc1.png" id="2_6xjyj"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_34ucj"]
 size = Vector2(12, 6)

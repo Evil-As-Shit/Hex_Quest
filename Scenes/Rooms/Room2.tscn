@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://basmd6d362dvj"]
 
-[ext_resource type="Texture2D" uid="uid://b47ff7nu6p81c" path="res://Assets/Sprites/TheApartments_Spritesheet.png" id="1_xe7ev"]
-[ext_resource type="Script" uid="uid://djqaphekc5w6q" path="res://Scripts/Room.gd" id="2_wwlvj"]
+[ext_resource type="Texture2D" uid="uid://b47ff7nu6p81c" path="res://Assets/Sprites/Environments/TheApartments_Spritesheet.png" id="1_xe7ev"]
+[ext_resource type="Script" uid="uid://djqaphekc5w6q" path="res://Scripts/World/Room.gd" id="2_wwlvj"]
 
 [node name="Room2" type="StaticBody2D" unique_id=442149642]
 collision_layer = 8

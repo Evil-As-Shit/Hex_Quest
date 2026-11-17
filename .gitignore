@@ -9,3 +9,7 @@
 # Godot export output
 export/
 *.translation
+
+# Editor caches / backups
+.vs/
+*~

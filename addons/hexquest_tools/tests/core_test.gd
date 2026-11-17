@@ -204,7 +204,7 @@ func _test_validator_and_scanner() -> void:
 func _test_factory_in_game() -> void:
 	print("\n== ObjectFactory + SceneTools, in the running game ==")
 	var sheet := Factory.new()
-	var texture_path := "res://Assets/Sprites/Objects_Spritesheet.png"
+	var texture_path := "res://Assets/Sprites/Objects/Objects_Spritesheet.png"
 	var specs := {
 		"npc": {"type": Factory.Type.NPC, "name": "Grandma", "texture": texture_path, "region": Rect2(0, 16, 16, 32), "dialogue_ids": ["NPC000"]},
 		"seat": {"type": Factory.Type.SEAT, "name": "Stool", "texture": texture_path, "region": Rect2(0, 0, 16, 16)},
@@ -293,7 +293,7 @@ func _test_factory_in_game() -> void:
 	check(not SceneTools.room_candidates(scene).has(hexy), "Hexy is never a candidate")
 
 	# Room scaffold
-	var room_spec := {"name": "Kitchen", "texture": "res://Assets/Sprites/TheApartments_Spritesheet.png", "region": Rect2(96, 0, 144, 216), "start_revealed": false}
+	var room_spec := {"name": "Kitchen", "texture": "res://Assets/Sprites/Environments/TheApartments_Spritesheet.png", "region": Rect2(96, 0, 144, 216), "start_revealed": false}
 	var room_scene := Factory.build_room(room_spec)
 	var room_path := TMP + "/Kitchen.tscn"
 	check(Factory.save_scene(room_scene, room_path) == OK, "room scaffold saved")

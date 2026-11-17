@@ -3,20 +3,20 @@ extends RefCounted
 ## Every project-specific path/number the tools rely on, in one place.
 ## If you move a folder or rename a script, change it here.
 
-const DIALOGUE_PATH := "res://Assets/dialogue.txt"
-const PORTRAIT_DIR := "res://Assets/ui/Avatars/"
+const DIALOGUE_PATH := "res://Assets/Data/dialogue.txt"
+const PORTRAIT_DIR := "res://Assets/UI/Portraits/"
 ## Image files in the portrait folder that are sheets, not single portraits.
 const PORTRAIT_IGNORE := ["avatars", "portraits_originalsize"]
 const OBJECT_SCENE_DIR := "res://Scenes/Objects/"
 const ROOM_SCENE_DIR := "res://Scenes/Rooms/"
 ## Folders searched for spritesheets in the object builder.
-const SPRITE_DIRS := ["res://Assets/Sprites/", "res://Assets/"]
-const DEFAULT_SPRITESHEET := "res://Assets/Sprites/Objects_Spritesheet.png"
+const SPRITE_DIRS := ["res://Assets/Sprites/Objects/", "res://Assets/Sprites/Characters/", "res://Assets/Sprites/Environments/"]
+const DEFAULT_SPRITESHEET := "res://Assets/Sprites/Objects/Objects_Spritesheet.png"
 
 const NPC_SCRIPT := "res://Scripts/Objects/NPC.gd"
 const CHAIR_SCRIPT := "res://Scripts/Objects/Chair.gd"
 const LAMP_SCRIPT := "res://Scripts/Objects/Lamp.gd"
-const ROOM_SCRIPT := "res://Scripts/Room.gd"
+const ROOM_SCRIPT := "res://Scripts/World/Room.gd"
 const DIALOGUE_BOX_SCRIPT := "res://Scripts/UI/DialogueBox.gd"
 
 ## Objects are added under this node (so they depth-sort with Hexy) when placed in a scene.

@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3 uid="uid://d2iabixf3el46"]
 
 [ext_resource type="Script" path="res://Scripts/Objects/Chair.gd" id="1_2qxpv"]
-[ext_resource type="Texture2D" uid="uid://dmhoylhewe84a" path="res://Assets/Sprites/Objects_Spritesheet.png" id="4_alx1g"]
+[ext_resource type="Texture2D" uid="uid://dmhoylhewe84a" path="res://Assets/Sprites/Objects/Objects_Spritesheet.png" id="4_alx1g"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ckrok"]
 size = Vector2(7, 12)

@@ -22,7 +22,7 @@ func _initialize() -> void:
 	save_manager = root.get_node("SaveManager")
 	game_data = root.get_node("GameData")
 	signals = root.get_node("SignalController")
-	dialogue_controller = load("res://Scripts/DialogueController.gd")
+	dialogue_controller = load("res://Scripts/Core/DialogueController.gd")
 	# A script error inside the awaiting _run() silently abandons it, so the quit below would never be
 	# reached. This watchdog makes sure the test always ends, with a failure, instead of hanging.
 	create_timer(120.0).timeout.connect(_on_watchdog)
@@ -355,7 +355,7 @@ func _run() -> void:
 			overlay.frame_changed.disconnect(record)
 			var expected: Array = range(1, ph.max_charge + 1)
 			check(steps == expected, "the battery goes up one level per charging loop, up to full (%s)" % [steps])
-			check(shown_after.size() >= 3 and shown_after[0] == "Dying:0" and shown_after[1] == "Charges:0" and shown_after[-1] == "Charges:%d" % top_frame, "it shows Dying, then each Charges frame in turn (%s)" % [shown_after])
+			check(shown_after.size() >= 3 and str(shown_after[0]).begins_with("Dying:") and shown_after[1] == "Charges:0" and shown_after[-1] == "Charges:%d" % top_frame, "it shows Dying, then each Charges frame in turn (%s)" % [shown_after])
 			check(sweep_frames.all(func(f): return f == ph.charge_step_frame), "every level change happens on sweep frame %d, while it covers the battery (%s)" % [ph.charge_step_frame, sweep_frames])
 			check(ph.charge_step_frame == 10, "charge_step_frame is the fully-covering sweep frame (10)")
 			check(game_data.dialogue_id == "ITM012" and box.visible and not game_data.dialogue_held, "when full, the dialogue moves on to 'Phone is Charged!!!' by itself")

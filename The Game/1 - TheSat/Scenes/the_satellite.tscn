@@ -1,13 +1,13 @@
 [gd_scene load_steps=16 format=3 uid="uid://8gefkok4qqlq"]
 
 [ext_resource type="Texture2D" uid="uid://s16lwikkg7km" path="res://The Game/1 - TheSat/Assets/Sprites/background.png" id="1_5wa5g"]
-[ext_resource type="Script" path="res://Scripts/GameController.gd" id="1_d3j6w"]
-[ext_resource type="PackedScene" uid="uid://5v4h5ybacygp" path="res://Scenes/UI.tscn" id="2_8bomp"]
-[ext_resource type="PackedScene" uid="uid://ddpjv6gvn3leh" path="res://Scenes/Player.tscn" id="3_dpdh5"]
+[ext_resource type="Script" path="res://Scripts/Core/GameController.gd" id="1_d3j6w"]
+[ext_resource type="PackedScene" uid="uid://5v4h5ybacygp" path="res://Scenes/UI/UI.tscn" id="2_8bomp"]
+[ext_resource type="PackedScene" uid="uid://ddpjv6gvn3leh" path="res://Scenes/Characters/Player.tscn" id="3_dpdh5"]
 [ext_resource type="Texture2D" uid="uid://bjo53be3q270" path="res://The Game/1 - TheSat/Assets/Sprites/rings.png" id="3_ud8dk"]
 [ext_resource type="Texture2D" uid="uid://bgukxlscctlg5" path="res://The Game/1 - TheSat/Assets/Sprites/foreground.png" id="6_031vx"]
 [ext_resource type="Script" path="res://Scripts/Objects/NPC.gd" id="6_c145x"]
-[ext_resource type="Script" path="res://Scripts/InputController.gd" id="10_2js8p"]
+[ext_resource type="Script" path="res://Scripts/Core/InputController.gd" id="10_2js8p"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gtg70"]
 size = Vector2(32.5, 18)

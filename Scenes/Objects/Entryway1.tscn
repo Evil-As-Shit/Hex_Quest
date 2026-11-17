@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bvbji3l8uqwba"]
 
-[ext_resource type="Texture2D" uid="uid://dmhoylhewe84a" path="res://Assets/Sprites/Objects_Spritesheet.png" id="1_kiltd"]
+[ext_resource type="Texture2D" uid="uid://dmhoylhewe84a" path="res://Assets/Sprites/Objects/Objects_Spritesheet.png" id="1_kiltd"]
 
 [node name="Entryway1" type="StaticBody2D" unique_id=82025428]
 collision_layer = 4

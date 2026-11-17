@@ -1,6 +1,6 @@
 extends Control
 
-const PORTRAIT_DIR := "res://Assets/ui/Avatars/"
+const PORTRAIT_DIR := "res://Assets/UI/Portraits/"
 const LABEL_SIZE_FULL := Vector2(400, 90)
 const LABEL_POS_FULL := Vector2(40, 20)
 const LABEL_SIZE_PORTRAIT := Vector2(305, 90)
