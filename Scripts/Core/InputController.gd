@@ -4,7 +4,7 @@ extends Node
 ## so rebinding works and it behaves on non-QWERTY layouts.
 
 func _process(_delta: float) -> void:
-	if GameData.is_using_phone or GameData.is_in_dialogue:
+	if GameData.is_using_phone or GameData.is_in_dialogue or GameData.is_in_cutscene:
 		GameData.move_input_vector = Vector2.ZERO
 	else:
 		GameData.move_input_vector = Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -13,6 +13,8 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		SaveManager.quit_game()
+	elif GameData.is_in_cutscene:
+		return # only Esc works during a cutscene
 	elif event.is_action_pressed("interact"):
 		_on_interact()
 	elif event.is_action_pressed("phone"):

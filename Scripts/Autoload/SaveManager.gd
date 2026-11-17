@@ -17,6 +17,9 @@ signal game_saved
 signal game_loaded
 
 const GROUP := &"persist"
+## Saveable nodes that are the same thing in every level (the phone), so their state carries over when
+## go_to_level() moves on to the next level. Nodes in it must also be in GROUP.
+const GROUP_CARRY := &"persist_across_levels"
 const SAVE_PATH := "user://savegame.json"
 const SAVE_VERSION := 1
 
@@ -30,7 +33,9 @@ var save_path: String = SAVE_PATH
 
 var _enabled: bool = false # only game scenes that contain a GameController save/load
 var _is_loading: bool = false
-var _skip_next_load: bool = false # set by start_new_game: the next game scene starts fresh
+var _skip_next_load: bool = false # set by start_new_game / go_to_level: the next game scene starts fresh
+var _carry: Dictionary = {} # go_to_level: save id -> state, applied in the next level
+var _save_on_arrival: bool = false # go_to_level: save once the next level is ready
 var _toast: Label
 var _toast_tween: Tween
 
@@ -66,8 +71,10 @@ func _notification(what: int) -> void:
 ## Called by GameController when a game scene is ready.
 func register_scene() -> void:
 	_enabled = true
-	if _skip_next_load: # New Game from the menu
+	if _skip_next_load: # New Game from the menu, or moving on to the next level
 		_skip_next_load = false
+		if not _carry.is_empty() or _save_on_arrival:
+			_arrive.call_deferred() # after every node in the scene has finished _ready()
 		return
 	if LOAD_ON_START and has_save():
 		# Deferred so every node in the scene has finished _ready() first.
@@ -88,6 +95,37 @@ func start_new_game(scene_path: String) -> void:
 	if get_tree().change_scene_to_file(scene_path) != OK:
 		_skip_next_load = false
 		push_error("SaveManager: can't open %s" % scene_path)
+
+
+## Story progression to another level (e.g. a LevelTransition at the end of a level). Unlike loading, the
+## level starts fresh (an old save for it is NOT restored); GameData (dialogue tags) carries over, and so
+## does every node in GROUP_CARRY (the phone). The game is saved as soon as the level is ready, so
+## Load Game continues from there.
+func go_to_level(scene_path: String) -> void:
+	_carry.clear()
+	for node in get_tree().get_nodes_in_group(GROUP_CARRY):
+		if node.has_method("save_state"):
+			_carry[node.get_save_id()] = node.save_state()
+	GameData.is_in_cutscene = false
+	_close_open_ui()
+	_skip_next_load = true
+	_save_on_arrival = true
+	if get_tree().change_scene_to_file(scene_path) != OK:
+		_skip_next_load = false
+		_save_on_arrival = false
+		_carry.clear()
+		push_error("SaveManager: can't open %s" % scene_path)
+
+
+func _arrive() -> void:
+	for node in get_tree().get_nodes_in_group(GROUP_CARRY):
+		var id: String = node.get_save_id()
+		if _carry.has(id) and node.has_method("load_state"):
+			node.load_state(_carry[id])
+	_carry.clear()
+	if _save_on_arrival:
+		_save_on_arrival = false
+		save_game()
 
 
 ## Main menu "Load Game": opens the scene the save belongs to; that scene's GameController then

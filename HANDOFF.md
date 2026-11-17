@@ -140,6 +140,16 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
   * Load Game -> `SaveManager.continue_game()`: opens the scene the save belongs to; its GameController restores the
     save as usual. Greyed out with no save. E (interact) presses the focused button too; Esc backs out of the question.
   * Running a level directly (F6 in the editor) still auto-loads that level's save, for testing.
+* **Level transitions** (`Scenes/UI/LevelTransition.tscn` + `Scripts/World/LevelTransition.gd`, a CanvasLayer at
+  layer 50): drop one into a level and set `trigger_dialogue_id`, `next_scene`, `duration`. When that line is closed
+  (E on it; it listens to `close_dialogue` and checks `GameData.dialogue_id`), its `Screen` AnimatedSprite2D
+  ("default" animation, centred at 540,360 like the menu background; a black 1080x720 GradientTexture2D placeholder)
+  covers the screen for `duration` s with `GameData.is_in_cutscene` on (InputController ignores everything but Esc),
+  then `SaveManager.go_to_level(next_scene)`.
+  * In the satellite: `SAT011` "Off I go then!" (the Door) -> The Apartments, 5 s.
+  * `go_to_level`: the next level starts fresh (an old save for it is NOT loaded), GameData tags carry over, nodes in
+    group `SaveManager.GROUP_CARRY` ("persist_across_levels"; the phone) carry their state, and the game saves as
+    soon as the level is ready so Load Game continues there. Hexy/rooms are per level and don't carry.
 * `SaveManager.save_path` is a var so tests can redirect it.
 
 ### Editor plugin: `addons/hexquest_tools/`
@@ -251,9 +261,10 @@ godot --headless -s res://Tests/smoke_test.gd                              # rev
 godot --headless -s res://addons/hexquest_tools/tests/core_test.gd         # DialogueDB, validator, factory, scene tools
 godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd           # drives the tool panels
 godot --headless -s res://Tests/menu_test.gd                               # main menu: New Game / Load Game
+godot --headless -s res://Tests/transition_test.gd                         # satellite -> apartments transition
 ```
 Each prints PASS/FAIL lines and exits non-zero on failure. All three pass on Godot 4.7.2 as of session 2
-(smoke 93, core 80, ui 71, menu 23 checks). `menu_test` registers an `OS.add_logger()` Logger and fails on any
+(smoke 93, core 80, ui 71, menu 23, transition 22 checks). `menu_test` and `transition_test` register an `OS.add_logger()` Logger and fails on any
 engine/script error printed during the run (script errors don't stop a test on their own); worth copying into the
 other suites. The smoke test's battery flow waits on real animation time (sped up 40x), so it's a few seconds slower. One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
 deliberately writes a corrupt save). Tests use their own save/dialogue files and clean up after themselves.
@@ -322,6 +333,7 @@ only saves if it contains a `GameController`.
     godot --headless -s res://addons/hexquest_tools/tests/core_test.gd
     godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd
     godot --headless -s res://Tests/menu_test.gd
+    godot --headless -s res://Tests/transition_test.gd
 (One "save file is corrupt" error line in smoke_test is expected. On Windows, see HANDOFF.md section 6 for running
 the GUI Godot build with --log-file and a timeout.) In `-s` test scripts, fetch autoloads via
 `root.get_node(...)`, use `root.push_input()` for input, and set `current_scene`.

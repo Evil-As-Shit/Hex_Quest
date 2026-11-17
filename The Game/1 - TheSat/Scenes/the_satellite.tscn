@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://8gefkok4qqlq"]
+[gd_scene load_steps=17 format=3 uid="uid://8gefkok4qqlq"]
 
 [ext_resource type="Texture2D" uid="uid://s16lwikkg7km" path="res://The Game/1 - TheSat/Assets/Sprites/background.png" id="1_5wa5g"]
 [ext_resource type="Script" path="res://Scripts/Core/GameController.gd" id="1_d3j6w"]
@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://bgukxlscctlg5" path="res://The Game/1 - TheSat/Assets/Sprites/foreground.png" id="6_031vx"]
 [ext_resource type="Script" path="res://Scripts/Objects/NPC.gd" id="6_c145x"]
 [ext_resource type="Script" path="res://Scripts/Core/InputController.gd" id="10_2js8p"]
+[ext_resource type="PackedScene" path="res://Scenes/UI/LevelTransition.tscn" id="11_trans"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gtg70"]
 size = Vector2(32.5, 18)
@@ -208,3 +209,7 @@ position = Vector2(-23, 17)
 sprite_frames = SubResource("SpriteFrames_ujedb")
 autoplay = "default"
 frame_progress = 0.938441
+
+[node name="LevelTransition" parent="." instance=ExtResource("11_trans")]
+trigger_dialogue_id = "SAT011"
+next_scene = "res://The Game/2 - The Apartments/The Apartments.tscn"

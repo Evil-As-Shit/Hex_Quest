@@ -22,6 +22,8 @@ var is_using_phone: bool = false
 var is_in_dialogue: bool = false
 ## While true, the line on screen can't be skipped with interact; release_dialogue() advances it.
 var dialogue_held: bool = false
+## A full-screen cutscene/transition is playing: no moving, interacting or phone.
+var is_in_cutscene: bool = false
 
 ## Tags unlocked by dialogue. Used as a set (the value is always true), so lookups are
 ## O(1) and showing the same line twice can't add duplicates.
@@ -91,5 +93,6 @@ func reset() -> void:
 	is_using_phone = false
 	is_in_dialogue = false
 	dialogue_held = false
+	is_in_cutscene = false
 	move_input_vector = Vector2.ZERO
 	SignalController.tags_loaded.emit()

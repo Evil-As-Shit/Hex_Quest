@@ -1,0 +1,31 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/World/LevelTransition.gd" id="1_trans"]
+
+[sub_resource type="Gradient" id="Gradient_black"]
+colors = PackedColorArray(0, 0, 0, 1, 0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_black"]
+gradient = SubResource("Gradient_black")
+width = 1080
+height = 720
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_placeholder"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("GradientTexture2D_black")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="LevelTransition" type="CanvasLayer"]
+layer = 50
+script = ExtResource("1_trans")
+
+[node name="Screen" type="AnimatedSprite2D" parent="."]
+texture_filter = 1
+position = Vector2(540, 360)
+sprite_frames = SubResource("SpriteFrames_placeholder")

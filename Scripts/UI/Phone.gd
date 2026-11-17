@@ -49,6 +49,7 @@ func _ready() -> void:
 	position = POS_HIDDEN
 	max_charge = LEVEL_DYING + battery_sprite.sprite_frames.get_frame_count("Charges")
 	add_to_group(SaveManager.GROUP)
+	add_to_group(SaveManager.GROUP_CARRY) # the same phone in every level: its battery carries over
 	SignalController.toggle_phone.connect(phone)
 	SignalController.phone_interacted.connect(phone_input)
 	SignalController.tag_added.connect(_on_tag_added)
