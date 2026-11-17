@@ -60,12 +60,32 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
 * `GameData.add_tag(tag)` ignores duplicates and emits `SignalController.tag_added(tag)`; `remove_tag(tag)` emits
   `tag_removed`. `load_state()` and `reset()` emit `tags_loaded` (all tags replaced at once). Systems that react to a
   tag listen to these signals; don't special-case tags inside `GameData`.
-* `Scripts/UI/Phone.gd` derives the battery (`Battery.DEAD / CHARGING / FULL`) from the tags `PHONE_CHARGE` and
-  `PHONE_CHARGE_FULL` (set by the Charger's dialogue, ITM010 -> ITM011 -> ITM012), so it needs no save data of its own.
-  Live tag changes animate (Charging plays one loop, then holds the last "Charges" frame); `tags_loaded` snaps to the
-  right picture. The phone also keeps `PHONE_CHARGE_ZERO` set while the battery is dead (NPC002 needs it), including
-  right after a new game. The sprite node is `UI/PhoneControl/Battery`. The "Dying" animation exists but isn't used yet
-  (no battery drain).
+* **Dialogue hold:** `GameData.hold_dialogue()` keeps the current (non-choice) line on screen: interact can't skip it.
+  `GameData.release_dialogue()` emits `SignalController.dialogue_released` and `DialogueBox` moves the line on (to its
+  divert, or closes it). Closing dialogue or `reset()` clears a hold. Use it for any line that waits on something.
+* **Phone battery** (`Scripts/UI/Phone.gd`). Nodes under `UI/PhoneControl`: `Battery` (level), `Battery_Charging`
+  (the "Charging" animation drawn on top, only while charging) and `Phone_Bool` (covers the screen while the phone
+  is off or turning on).
+  * Levels in `charge`: 0 = "Ded", 1 = "Dying" (loops), 2..`max_charge` = "Charges" frames 0..8, so `max_charge` = 1 +
+    the "Charges" frame count = 10. States are `Battery.DEAD / CHARGING / CHARGED / FULL` (0..3).
+  * `add_charge(amount)` changes the level (negative drains). No gameplay drains it yet; for testing, **F6**
+    (input action `debug_drain_battery`, debug builds only) drains one level.
+  * Tags mirror the level for dialogue: `PHONE_CHARGE_ZERO` while dead (NPC002 needs it), `PHONE_CHARGE_FULL` only
+    while full (so after draining, the charger offers to charge again). `PHONE_CHARGE` only while charging.
+  * Charger flow: Charger `dialogue_ids` = `["ITM014", "ITM010"]`, so a full phone gets "already charged". ITM010 Yes
+    -> ITM011 "Charging phone..." adds `PHONE_CHARGE`. The phone holds that line and shows `Battery_Charging`. Each
+    loop raises `Battery` one level (Dying, then each Charges frame). The rise happens on sweep frame
+    `charge_step_frame` (an export on PhoneControl, default 10, the frame whose sweep covers the whole battery), so
+    the change is hidden. At max, once that loop ends, it hides the overlay, clears `PHONE_CHARGE` and releases
+    the line, so ITM012 "Phone is Charged!!!" shows by itself. A full charge is 10 loops of 21 frames at 25 fps
+    (about 8.4 s); tune the "Charging" speed in `Battery_Charging`'s SpriteFrames. If the sweep art is redrawn,
+    re-check `charge_step_frame`.
+  * Power: reaching 0 plays `Phone_Bool` "Turn_Phone_Off" once (`ANIM_OFF`) and leaves its black last frame up. Buttons are disabled with focus mode NONE; Q still opens and closes the phone. A charged phone
+    stays off until it's next opened. Opening it plays "Turn_Phone_On" once, then `Phone_Bool` is hidden, the buttons
+    are re-enabled and Home gets focus.
+  * Saving: the phone is in the "persist" group (`get_save_id` "phone", saves `{"charge": n}`). Older saves without it
+    fall back to the tags (full or dead). A save from mid-charge loads as dead and clears `PHONE_CHARGE` so charging
+    can start again. On load the phone is simply on if it has charge, with no animation.
 
 ### Room reveal (hidden until entered, permanent)
 * `Scripts/Room.gd` (`class_name Room`) sits on the room's `Area2D`. `reveal_nodes: Array[NodePath]` lists the room
@@ -78,11 +98,11 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
   with "Editable Children" on, which is what lets its `reveal_nodes` override (Lamp2, Chair2) be saved.
 
 ### Save/load (`Scripts/SaveManager.gd`)
-* One file: `user://savegame.json` (atomic write via temp file + rename). F5 save, F9 load, F10 delete + new game
+* One file: `user://savegame.json` (atomic write via temp file + rename). F5 save, F9 load, F6 drain the phone battery one level (debug builds only), F10 delete + new game
   (debug builds only). Autosave on room reveal and on quit. The last save loads automatically on start, **only if it
   belongs to the running scene**.
 * Contract: a node joins group `SaveManager.GROUP` ("persist") and provides `get_save_id()`, `save_state()`,
-  `load_state(dict)`. Currently: Hexy, every `Room`, `Lamp`; plus `GameData.dialogue_tags`.
+  `load_state(dict)`. Currently: Hexy, every `Room`, `Lamp`, the phone; plus `GameData.dialogue_tags`.
 * Saving is **off** unless the scene contains a `GameController` node (which calls `SaveManager.register_scene()`).
   This keeps test scenes from overwriting the real save.
 * `SaveManager.save_path` is a var so tests can redirect it.
@@ -137,6 +157,9 @@ rename-id edits `.tscn` files as text and the editor then prompts to reload.
   to see inside instanced scenes.
 * New `class_name` scripts are only registered in `.godot/global_script_class_cache.cfg` after an editor/import scan.
   Autoload scripts must not depend on that cache (hence the `preload` in `GameData`).
+* `AnimatedSprite2D.play(name)` on the animation it's already on carries on from the current frame; parked on the
+  last frame of a non-looping animation, it "plays" nothing. Rewind first (`set_frame_and_progress(0, 0.0)`); see
+  `Phone._play_from_start`. Tests of an animation should check it starts at frame 0, not just `is_playing()`.
 * `AnimatedSprite2D.stop()` resets the frame. Lamp uses `pause()` after setting the frame to hold an end state.
 
 **Headless `-s` test scripts**
@@ -145,6 +168,12 @@ rename-id edits `.tscn` files as text and the editor then prompts to reload.
 * `Input.parse_input_event` is not delivered in headless mode. Use `root.push_input(event)`.
 * A scene added manually needs `current_scene = scene`, or `SaveManager.save_game()` returns false.
 * `--check-only` on a single script can't see autoloads. Judge parse errors by running the scene instead.
+
+**Tests that touch real files**
+* Renaming a dialogue id in the Dialogue tab also rewrites matching ids in the **real** `.tscn` files (the tests only
+  use a temp copy of the dialogue). `ui_test` renames `ITM011` and checks first that no scene uses it; pick another id
+  if that ever changes. An earlier version renamed `ITM014`, which silently rewrote the Charger scene.
+* After a test run, check `git status` for unexpected changes.
 
 **Editor plugins**
 * Selecting a `Node2D` (for example after placing one) makes Godot switch to the 2D view. Screenshots/tests must
@@ -182,14 +211,13 @@ godot --headless -s res://addons/hexquest_tools/tests/core_test.gd         # Dia
 godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd           # drives the tool panels
 ```
 Each prints PASS/FAIL lines and exits non-zero on failure. All three pass on Godot 4.7.2 as of session 2
-(smoke 59, core 80, ui 70 checks). One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
+(smoke 93, core 80, ui 71 checks). The smoke test's battery flow waits on real animation time (sped up 40x), so it's a few seconds slower. One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
 deliberately writes a corrupt save). Tests use their own save/dialogue files and clean up after themselves.
 
 ## 8. Known issues and data problems
 * ~~`NPC005 -> NPC006`~~ fixed in the data (the Problems tab shows 0 errors).
 * `FIRST_SOUL_COMPLETED` (ITM021, NPC010) is required but never set, so those lines never show.
   `PHONE_CHARGE_ZERO` is set by `Phone.gd` (the Problems tab still warns about it; that warning is expected).
-* The Charger always asks "Would you like to charge your phone?" even when it's full (Yes then says "already charged").
 * The tests reference current node names (`Charater_Test`, `Table`, `Room2`); renaming those means updating tests.
 * Two Godot-generated `.import` files are untracked in the repo (`hexy stand.png.import`,
   `witch_confused.png.import`). Commit them or ignore them, the user hasn't decided.
@@ -202,8 +230,8 @@ deliberately writes a corrupt save). Tests use their own save/dialogue files and
   fix this).
 
 ## 9. Suggested next steps (pick with the user)
-1. Decide what sets `FIRST_SOUL_COMPLETED`. Battery follow-ups: drain (the "Dying" animation), and
-   whether the Charger should skip its question when the phone is full.
+1. Decide what sets `FIRST_SOUL_COMPLETED`. Battery follow-up: decide what drains it (call
+   `Phone.add_charge(-n)`; levels, tags, power-off and saving are already handled).
 2. Main menu / Continue button using `SaveManager.has_save()` and `load_game()` (scene-change loading is
    implemented but only lightly exercised).
 3. More rooms and objects using the Objects tab; wire `TheSat` into the same flow if it should share the save.
