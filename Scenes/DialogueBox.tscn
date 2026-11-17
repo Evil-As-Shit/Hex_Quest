@@ -1,0 +1,75 @@
+[gd_scene load_steps=7 format=3 uid="uid://c4k56nxthkfw6"]
+
+[ext_resource type="Script" uid="uid://dd0kqh13disw3" path="res://Scripts/UI/DialogueBox.gd" id="1_5cu1i"]
+[ext_resource type="Texture2D" uid="uid://cbele1u6vrwbe" path="res://Assets/ui/blankballoon.png" id="2_jdnts"]
+[ext_resource type="Texture2D" uid="uid://2x75dsxhw77x" path="res://Assets/ui/Avatars/witch_upset.png" id="3_8fhyv"]
+[ext_resource type="Texture2D" uid="uid://bl3f4ci5iq1y5" path="res://Assets/ui/nextindicator.png" id="4_27kx6"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_odvn0"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_huuyd"]
+
+[node name="DialogueBox" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 19.0
+offset_right = 499.0
+offset_bottom = 128.0
+script = ExtResource("1_5cu1i")
+
+[node name="BGNinePatchRect" type="NinePatchRect" parent="."]
+layout_mode = 0
+offset_right = 480.0
+offset_bottom = 130.0
+texture = ExtResource("2_jdnts")
+region_rect = Rect2(0, 0, 160, 61)
+patch_margin_left = 5
+patch_margin_top = 5
+patch_margin_right = 5
+patch_margin_bottom = 5
+
+[node name="PortraitTexture" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = -20.0
+offset_top = -30.0
+offset_right = 130.0
+offset_bottom = 152.0
+texture = ExtResource("3_8fhyv")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 0
+offset_left = 135.0
+offset_top = 20.0
+offset_right = 440.0
+offset_bottom = 110.0
+text = "Yea I aint reading all of these... more words to make sure autowrap works properly."
+autowrap_mode = 2
+visible_characters_behavior = 1
+
+[node name="Button0" type="Button" parent="."]
+layout_mode = 0
+offset_left = 80.0
+offset_right = 240.0
+offset_bottom = 130.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_focus_color = Color(1, 1, 0, 1)
+theme_override_styles/focus = SubResource("StyleBoxEmpty_odvn0")
+text = "Yes"
+flat = true
+
+[node name="Button1" type="Button" parent="."]
+layout_mode = 0
+offset_left = 240.0
+offset_right = 400.0
+offset_bottom = 130.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_focus_color = Color(1, 1, 0, 1)
+theme_override_styles/focus = SubResource("StyleBoxEmpty_huuyd")
+text = "No"
+flat = true
+
+[node name="NextIndicator" type="Sprite2D" parent="."]
+position = Vector2(460, 110)
+texture = ExtResource("4_27kx6")
+centered = false
+hframes = 2

@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://cqk4q0t8yk7x5"]
+
+[ext_resource type="Script" uid="uid://ddwyp0jqjm68j" path="res://Scripts/Objects/NPC.gd" id="1_88hag"]
+[ext_resource type="Texture2D" uid="uid://dfqcy8tavfkwd" path="res://Assets/Sprites/npc1.png" id="2_on7vp"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5lfea"]
+size = Vector2(4, 5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_prqys"]
+size = Vector2(20, 14)
+
+[node name="Charater_Test" type="StaticBody2D" unique_id=670471912]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_88hag")
+
+[node name="Sprite" type="Sprite2D" parent="." unique_id=2065208309]
+position = Vector2(-16, -30)
+texture = ExtResource("2_on7vp")
+centered = false
+region_enabled = true
+region_rect = Rect2(0, 0, 32, 30)
+
+[node name="Collision" type="CollisionShape2D" parent="." unique_id=1263154567]
+position = Vector2(0, -2.5)
+shape = SubResource("RectangleShape2D_5lfea")
+
+[node name="Object_Id" type="Area2D" parent="." unique_id=1955385525]
+position = Vector2(0, -1.5)
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+
+[node name="Interact_Area" type="CollisionShape2D" parent="Object_Id" unique_id=2018732765]
+shape = SubResource("RectangleShape2D_prqys")

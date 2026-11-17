@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://bvbji3l8uqwba"]
+
+[ext_resource type="Texture2D" uid="uid://dmhoylhewe84a" path="res://Assets/Sprites/Objects_Spritesheet.png" id="1_kiltd"]
+
+[node name="Entryway1" type="StaticBody2D" unique_id=82025428]
+collision_layer = 4
+collision_mask = 0
+
+[node name="Sprite" type="Sprite2D" parent="." unique_id=1393956226]
+texture = ExtResource("1_kiltd")
+region_enabled = true
+region_rect = Rect2(32, 0, 16, 17)

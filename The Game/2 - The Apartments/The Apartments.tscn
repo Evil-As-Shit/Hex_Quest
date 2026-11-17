@@ -1,0 +1,131 @@
+[gd_scene format=3 uid="uid://bjf0wgc4dwc6s"]
+
+[ext_resource type="PackedScene" uid="uid://5v4h5ybacygp" path="res://Scenes/UI.tscn" id="1_kn8ed"]
+[ext_resource type="Script" uid="uid://bhsrlrme5hwsn" path="res://Scripts/GameController.gd" id="1_vxoag"]
+[ext_resource type="PackedScene" uid="uid://ddpjv6gvn3leh" path="res://Scenes/Player.tscn" id="2_uv7gc"]
+[ext_resource type="Texture2D" uid="uid://b47ff7nu6p81c" path="res://Assets/Sprites/TheApartments_Spritesheet.png" id="4_8qan8"]
+[ext_resource type="Script" uid="uid://be27msdgggts" path="res://The Game/2 - The Apartments/BalconyDoor_Sprite.gd" id="4_jqwy4"]
+[ext_resource type="PackedScene" uid="uid://3snpnbebubhl" path="res://Scenes/Objects/Lamp.tscn" id="6_eaxnm"]
+[ext_resource type="PackedScene" uid="uid://d2iabixf3el46" path="res://Scenes/Objects/Chair.tscn" id="7_bms7t"]
+[ext_resource type="PackedScene" uid="uid://cvo0rd0yhp61x" path="res://Scenes/Objects/Charger.tscn" id="7_vdgxh"]
+[ext_resource type="Script" uid="uid://dhwkownhh2xec" path="res://Scripts/InputController.gd" id="8_h1r5b"]
+[ext_resource type="Script" uid="uid://djqaphekc5w6q" path="res://Scripts/Room.gd" id="11_room"]
+[ext_resource type="PackedScene" uid="uid://cqk4q0t8yk7x5" path="res://Scenes/Objects/Charater_Test2.tscn" id="11_vdgxh"]
+[ext_resource type="PackedScene" uid="uid://basmd6d362dvj" path="res://Scenes/Rooms/Room2.tscn" id="12_0ahgj"]
+[ext_resource type="PackedScene" uid="uid://dudnnb5m3khpw" path="res://Scenes/Objects/Table.tscn" id="12_tn3g0"]
+[ext_resource type="PackedScene" uid="uid://bvbji3l8uqwba" path="res://Scenes/Objects/Entryway1.tscn" id="13_0ahgj"]
+
+[node name="The Apartments" type="Node2D" unique_id=1806015723]
+
+[node name="GameController" type="Node" parent="." unique_id=727563565]
+script = ExtResource("1_vxoag")
+
+[node name="UI" parent="." unique_id=85982155 instance=ExtResource("1_kn8ed")]
+
+[node name="YSort" type="Node2D" parent="." unique_id=326391038]
+y_sort_enabled = true
+
+[node name="CharacterBody2D" parent="YSort" unique_id=1847069456 instance=ExtResource("2_uv7gc")]
+position = Vector2(-101, -48)
+
+[node name="BalconyDoor_Sprite" type="Sprite2D" parent="YSort" unique_id=321812109]
+position = Vector2(-62, -54)
+texture = ExtResource("4_8qan8")
+offset = Vector2(-11, 5)
+region_enabled = true
+region_rect = Rect2(240, 0, 24, 80)
+script = ExtResource("4_jqwy4")
+
+[node name="BalconyDoor_Sprite2" type="Sprite2D" parent="YSort" unique_id=691962522]
+position = Vector2(-77, -25)
+texture = ExtResource("4_8qan8")
+offset = Vector2(-4, -24)
+region_enabled = true
+region_rect = Rect2(240, 0, 8, 80)
+
+[node name="Charger" parent="YSort" unique_id=440760365 instance=ExtResource("7_vdgxh")]
+position = Vector2(-15, -59)
+
+[node name="Balcony" type="StaticBody2D" parent="YSort" unique_id=95319]
+position = Vector2(-117, -67)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Balcony_Sprite" type="Sprite2D" parent="YSort/Balcony" unique_id=2073665808]
+position = Vector2(17, 94)
+texture = ExtResource("4_8qan8")
+region_enabled = true
+region_rect = Rect2(0, 0, 88, 192)
+
+[node name="Balcony_Collision" type="CollisionPolygon2D" parent="YSort/Balcony" unique_id=1545781984]
+position = Vector2(57, -0.999996)
+polygon = PackedVector2Array(-4, 6.99999, -39, 9, -41, 12, -51, 12, -72, 55, -25, 59, -18, 43, -17, 43, -25, 60, -74, 56, -51, 11, -41, 11, -39, 8, 0, 5.99999, 0, 11, -11, 33, -12, 33, -1, 11, -4, 11)
+
+[node name="Balcony" type="Area2D" parent="YSort/Balcony" unique_id=1676919289]
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="YSort/Balcony/Balcony" unique_id=1014820357]
+polygon = PackedVector2Array(53, 10, 53, 6, 18, 8, 16, 11, 6, 11, -15, 54, 32, 58, 40, 42, 40, 32, 45, 32, 56, 10)
+
+[node name="Room1" type="StaticBody2D" parent="YSort" unique_id=1934975902]
+position = Vector2(58, -63)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Room1_Sprite" type="Sprite2D" parent="YSort/Room1" unique_id=712713250]
+position = Vector2(-71, 82)
+texture = ExtResource("4_8qan8")
+region_enabled = true
+region_rect = Rect2(96, 0, 144, 216)
+
+[node name="Room1_Collision" type="CollisionPolygon2D" parent="YSort/Room1" unique_id=421506056]
+visible = false
+position = Vector2(-58, 63)
+polygon = PackedVector2Array(13, -3, 33, -2, 57, -62, -62, -54, -71, -35, -72, -35, -62, -55, 58, -63, 34, 0, 13, -1)
+
+[node name="Room1_Collision2" type="CollisionPolygon2D" parent="YSort/Room1" unique_id=229243155]
+visible = false
+position = Vector2(-58, 63)
+polygon = PackedVector2Array(0, -3, 0, -1, -86, -8, -78, -25, -77, -25, -84, -9)
+
+[node name="Room1" type="Area2D" parent="YSort/Room1" unique_id=1988058605]
+visible = false
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+script = ExtResource("11_room")
+room_id = &"Room1"
+reveal_nodes = Array[NodePath]([NodePath("../Room1_Sprite"), NodePath("../../BalconyDoor_Sprite"), NodePath("../../BalconyDoor_Sprite2"), NodePath("../../Lamp"), NodePath("../../Chair"), NodePath("../../Table"), NodePath("../../Charger"), NodePath("../../Charater_Test"), NodePath("../../Entryway1")])
+
+[node name="Room1_Area" type="CollisionPolygon2D" parent="YSort/Room1/Room1" unique_id=608043467]
+polygon = PackedVector2Array(-142, 54, -25, 63, -1, 1, -120, 9, -129, 28, -135, 28, -135, 38)
+
+[node name="Entryway1" parent="YSort" unique_id=82025428 instance=ExtResource("13_0ahgj")]
+position = Vector2(8, -3)
+
+[node name="Room2" parent="YSort" unique_id=442149642 instance=ExtResource("12_0ahgj")]
+position = Vector2(7, -2)
+
+[node name="Lamp" parent="YSort" unique_id=1619785801 instance=ExtResource("6_eaxnm")]
+position = Vector2(-31, -50)
+
+[node name="Lamp2" parent="YSort" unique_id=1720311738 instance=ExtResource("6_eaxnm")]
+position = Vector2(59, 2)
+
+[node name="Chair" parent="YSort" unique_id=1489724181 instance=ExtResource("7_bms7t")]
+position = Vector2(-53, -54)
+
+[node name="Chair2" parent="YSort" unique_id=1913677305 instance=ExtResource("7_bms7t")]
+position = Vector2(79, -2)
+
+[node name="Table" parent="YSort" unique_id=944845625 instance=ExtResource("12_tn3g0")]
+position = Vector2(2, -49)
+
+[node name="Charater_Test" parent="YSort" unique_id=670471912 instance=ExtResource("11_vdgxh")]
+position = Vector2(-57, -15)
+dialogue_ids = Array[String](["NPC002", "NPC000"])
+
+[node name="InputController" type="Node" parent="." unique_id=1791381247]
+script = ExtResource("8_h1r5b")

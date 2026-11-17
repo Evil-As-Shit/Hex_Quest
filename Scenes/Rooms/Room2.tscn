@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://basmd6d362dvj"]
+
+[ext_resource type="Texture2D" uid="uid://b47ff7nu6p81c" path="res://Assets/Sprites/TheApartments_Spritesheet.png" id="1_xe7ev"]
+[ext_resource type="Script" uid="uid://djqaphekc5w6q" path="res://Scripts/Room.gd" id="2_wwlvj"]
+
+[node name="Room2" type="StaticBody2D" unique_id=442149642]
+collision_layer = 8
+collision_mask = 0
+
+[node name="Room2_Sprite" type="Sprite2D" parent="." unique_id=561492146]
+position = Vector2(16, 78)
+texture = ExtResource("1_xe7ev")
+region_enabled = true
+region_rect = Rect2(0, 288, 160, 224)
+
+[node name="Room2_Collision" type="CollisionPolygon2D" parent="." unique_id=887293770]
+position = Vector2(54.800003, 102)
+polygon = PackedVector2Array(-87, -101, -61.800003, -103, -61.800003, -101, -86, -99, -107, -55, 8, -45, 33, -107, -48.800003, -102, -48.800003, -103, 36, -109, 9, -43, -110, -54)
+
+[node name="Room2" type="Area2D" parent="." unique_id=250187019]
+visible = false
+position = Vector2(16, 78)
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_wwlvj")
+room_id = &"Room2"
+reveal_nodes = Array[NodePath]([NodePath("../Room2_Sprite")])
+
+[node name="Room2_Area" type="CollisionPolygon2D" parent="Room2" unique_id=1860417760]
+position = Vector2(23.800003, -87)
+polygon = PackedVector2Array(-71, 12, 48, 4, 23, 66, -92, 56)

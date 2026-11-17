@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://cvo0rd0yhp61x"]
+
+[ext_resource type="Script" uid="uid://ddwyp0jqjm68j" path="res://Scripts/Objects/NPC.gd" id="1_vrphg"]
+[ext_resource type="Texture2D" uid="uid://dmhoylhewe84a" path="res://Assets/Sprites/Objects_Spritesheet.png" id="2_av4ek"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_oulxp"]
+size = Vector2(16, 16)
+
+[node name="Charger" type="StaticBody2D" unique_id=440760365]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_vrphg")
+dialogue_ids = Array[String](["ITM010"])
+
+[node name="Sprite" type="Sprite2D" parent="." unique_id=2088866855]
+position = Vector2(-3, -9)
+texture = ExtResource("2_av4ek")
+centered = false
+region_enabled = true
+region_rect = Rect2(56, 0, 8, 8)
+
+[node name="Object_Id" type="Area2D" parent="." unique_id=550113479]
+position = Vector2(0, -0.5)
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+
+[node name="Interact_Area" type="CollisionShape2D" parent="Object_Id" unique_id=1295988562]
+position = Vector2(0, 2.5)
+shape = SubResource("RectangleShape2D_oulxp")
