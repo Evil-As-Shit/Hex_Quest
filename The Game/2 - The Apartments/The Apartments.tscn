@@ -108,6 +108,9 @@ position = Vector2(8, -3)
 [node name="Room2" parent="YSort" unique_id=442149642 instance=ExtResource("12_0ahgj")]
 position = Vector2(7, -2)
 
+[node name="Room2" parent="YSort/Room2" index="2" unique_id=250187019]
+reveal_nodes = Array[NodePath]([NodePath("../Room2_Sprite"), NodePath("../../Chair2"), NodePath("../../Lamp2")])
+
 [node name="Lamp" parent="YSort" unique_id=1619785801 instance=ExtResource("6_eaxnm")]
 position = Vector2(-31, -50)
 
@@ -129,3 +132,5 @@ dialogue_ids = Array[String](["NPC002", "NPC000"])
 
 [node name="InputController" type="Node" parent="." unique_id=1791381247]
 script = ExtResource("8_h1r5b")
+
+[editable path="YSort/Room2"]

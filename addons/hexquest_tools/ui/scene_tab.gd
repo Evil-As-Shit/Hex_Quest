@@ -69,6 +69,9 @@ func _init() -> void:
 
 func refresh() -> void:
 	_tree.clear()
+	# Keep the chosen room: this runs every time the tab is shown again, and selecting a node in the
+	# Scene dock flips the editor to the 2D view, so without this the dropdown fell back to the first room.
+	var keep := _room_pick.get_item_text(_room_pick.selected) if _room_pick.selected >= 0 else ""
 	_room_pick.clear()
 	var root := Ctx.scene_root()
 	if root == null:
@@ -79,6 +82,8 @@ func refresh() -> void:
 	for room in rooms:
 		_room_pick.add_item(str(room.name))
 		_room_pick.set_item_metadata(_room_pick.item_count - 1, room)
+		if str(room.name) == keep:
+			_room_pick.select(_room_pick.item_count - 1)
 	var tree_root := _tree.create_item()
 	var assigned := {}
 	for room in rooms:
@@ -152,11 +157,17 @@ func _on_activated() -> void:
 # ---- changing assignments (always undoable) ----
 
 func _commit(changes: Dictionary, action: String) -> void:
+	if changes.is_empty():
+		return
 	var ur := Ctx.undo_redo()
-	if ur == null or changes.is_empty():
+	if ur == null: # no editor (tests): apply directly
+		for room in changes:
+			room.set("reveal_nodes", changes[room])
+		refresh()
 		return
 	ur.create_action(action)
 	for room in changes:
+		SceneTools.add_make_editable(ur, Ctx.scene_root(), room)
 		ur.add_do_property(room, "reveal_nodes", changes[room])
 		ur.add_undo_property(room, "reveal_nodes", SceneTools.reveal_nodes_of(room))
 	ur.commit_action()
@@ -168,11 +179,23 @@ func _path_for(room: Node, node: Node) -> NodePath:
 
 
 func _on_assign_selected() -> void:
+	if Ctx.editor() == null:
+		return
+	assign_to_picked_room(Ctx.editor().get_selection().get_selected_nodes())
+
+
+## The Assign button's work, given the selected nodes (split out so tests can call it without an editor).
+## Always leaves a message in the info line saying what happened.
+func assign_to_picked_room(selected: Array) -> void:
 	var root := Ctx.scene_root()
-	if root == null or _room_pick.selected < 0 or Ctx.editor() == null:
+	if root == null:
+		_info.text = "Open a scene first."
+		return
+	if _room_pick.selected < 0:
+		_info.text = "This scene has no rooms to assign to."
 		return
 	var target: Node = _room_pick.get_item_metadata(_room_pick.selected)
-	var nodes := Ctx.editor().get_selection().get_selected_nodes().filter(func(n): return n is Node2D and not SceneTools.is_room(n) and n != target and not n is CharacterBody2D)
+	var nodes := selected.filter(func(n): return n is Node2D and not SceneTools.is_room(n) and n != target and not n is CharacterBody2D)
 	if nodes.is_empty():
 		_info.text = "Select the objects to add in the Scene dock first (not the room itself or Hexy)."
 		return
@@ -193,7 +216,12 @@ func _on_assign_selected() -> void:
 					changed = true
 		if changed:
 			changes[room] = list
+	var names := ", ".join(PackedStringArray(nodes.map(func(n): return str(n.name))))
+	if changes.is_empty():
+		_info.text = "%s already in %s: nothing to change." % [names, target.name]
+		return
 	_commit(changes, "Assign to " + str(target.name))
+	_info.text = "Added %s to %s. Save the scene (Ctrl+S) to keep it." % [names, target.name]
 
 
 func _on_remove() -> void:

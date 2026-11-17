@@ -97,6 +97,27 @@ static func suggest_assignments(scene_root: Node) -> Dictionary:
 	return out
 
 
+## A room that lives inside an instanced scene (like Room2.tscn placed in The Apartments) is owned by
+## that instance, and Godot only saves property changes on an instance's children when "Editable
+## Children" is on for it. Without it, edits to reveal_nodes look fine in the editor but are silently
+## dropped on save. This lists every instance between the node and the scene root that still needs it.
+static func instances_needing_editable(scene_root: Node, node: Node) -> Array:
+	var out: Array = []
+	var n := node.owner
+	while n != null and n != scene_root:
+		if not scene_root.is_editable_instance(n):
+			out.append(n)
+		n = n.owner
+	return out
+
+
+## Adds do/undo steps to the open undo action so changes to `node` are actually saved (see above).
+static func add_make_editable(ur: Object, scene_root: Node, node: Node) -> void:
+	for inst in instances_needing_editable(scene_root, node):
+		ur.add_do_method(scene_root, "set_editable_instance", inst, true)
+		ur.add_undo_method(scene_root, "set_editable_instance", inst, false)
+
+
 ## Which room (if any) lists this node in reveal_nodes.
 static func room_of(scene_root: Node, node: Node) -> Node:
 	for room in find_rooms(scene_root):

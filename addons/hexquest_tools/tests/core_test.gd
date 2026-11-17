@@ -9,7 +9,7 @@ const Metrics := preload("res://addons/hexquest_tools/core/dialogue_metrics.gd")
 const Scanner := preload("res://addons/hexquest_tools/core/scene_scanner.gd")
 const Factory := preload("res://addons/hexquest_tools/core/object_factory.gd")
 const SceneTools := preload("res://addons/hexquest_tools/core/scene_tools.gd")
-const SCENE := "res://The Game/2 -  The Apartments/The Apartments.tscn"
+const SCENE := "res://The Game/2 - The Apartments/The Apartments.tscn"
 const TMP := "res://Tests/_tmp"
 
 var failures := 0
@@ -46,6 +46,7 @@ func _run() -> void:
 	await _test_db()
 	await _test_validator_and_scanner()
 	await _test_factory_in_game()
+	_test_instanced_room_saves()
 	# clean up
 	for f in DirAccess.get_files_at(TMP):
 		DirAccess.remove_absolute(TMP.path_join(f))
@@ -58,7 +59,16 @@ func _test_db() -> void:
 	print("\n== DialogueDB ==")
 	var db := DialogueDB.new()
 	check(db.load_file(), "loads dialogue.txt")
-	check(db.entries.size() == 36, "36 entries (%d)" % db.entries.size())
+	# the expected count and prefix order are read straight from the file, so adding a line doesn't break this
+	var id_rx := RegEx.create_from_string("\"id\"\\s*:\\s*\"([^\"]+)\"")
+	var file_ids := []
+	var file_prefixes := PackedStringArray()
+	for m in id_rx.search_all(FileAccess.get_file_as_string(DialogueDB.new().path)):
+		file_ids.append(m.get_string(1))
+		var pre := DialogueDB.prefix_of(m.get_string(1))
+		if not file_prefixes.has(pre):
+			file_prefixes.append(pre)
+	check(file_ids.size() > 0 and db.entries.size() == file_ids.size(), "%d entries, as many as dialogue.txt has ids (%d)" % [db.entries.size(), file_ids.size()])
 	check(DialogueDB.kind_of(db.get_entry("ITM010")) == DialogueDB.Kind.CHOICES, "ITM010 is a question")
 	check(DialogueDB.kind_of(db.get_entry("SAT002")) == DialogueDB.Kind.DIVERT, "SAT002 continues")
 	check(DialogueDB.kind_of(db.get_entry("SAT001")) == DialogueDB.Kind.END, "SAT001 ends")
@@ -78,7 +88,7 @@ func _test_db() -> void:
 	check(db.next_id("SAT") == "SAT012", "next SAT id skips the gap and uses the max (%s)" % db.next_id("SAT"))
 	check(db.next_id("BRAND") == "BRAND000", "a new prefix starts at 000")
 	check(DialogueDB.prefix_of("NPC012") == "NPC" and DialogueDB.prefix_of("A_B_7") == "A_B_", "prefix_of")
-	check(db.prefixes() == PackedStringArray(["SAT", "ITM", "NPC", "QRC", "SOL"]), "prefixes in file order %s" % [db.prefixes()])
+	check(db.prefixes() == file_prefixes and file_prefixes.has("TABLE"), "prefixes in file order %s" % [db.prefixes()])
 
 	# references / reachability
 	var refs := db.references_to("ITM014")
@@ -138,7 +148,13 @@ func _test_validator_and_scanner() -> void:
 	for r in refs:
 		names.append(r["node"])
 	check(refs.size() >= 8, "scene scan found %d objects with dialogue_ids" % refs.size())
-	check(names.has("NPC") and names.has("shoe_rack") and names.has("Door"), "found nodes from both scenes (%s…)" % [names.slice(0, 6)])
+	# (the Apartments NPC is now called Charater_Test; match scenes by file rather than by a node name)
+	var scenes_seen := []
+	for r in refs:
+		if not scenes_seen.has(r["scene"]):
+			scenes_seen.append(r["scene"])
+	check(scenes_seen.has(SCENE) and names.has("Charater_Test") and names.has("Table"), "found Apartments nodes (%s…)" % [names.slice(0, 6)])
+	check(scenes_seen.any(func(s): return s.contains("the_satellite")) and names.has("shoe_rack") and names.has("Door"), "found Satellite nodes too")
 	var problems := Validator.run(db, refs)
 	var counts := [0, 0, 0]
 	for p in problems:
@@ -265,7 +281,8 @@ func _test_factory_in_game() -> void:
 
 	# Rooms + assignment suggestions
 	var rooms := SceneTools.find_rooms(scene)
-	check(rooms.size() == 1 and rooms[0].room_id == &"Room1", "find_rooms finds Room1")
+	# the Apartments now has two rooms (Room2 is an instanced scene); Room1 comes first in tree order
+	check(rooms.size() == 2 and rooms[0].room_id == &"Room1" and rooms[1].room_id == &"Room2", "find_rooms finds Room1 and Room2")
 	check(SceneTools.reveal_nodes_of(rooms[0]).size() == 9, "Room1 lists its 9 revealed nodes")
 	check(SceneTools.room_of(scene, scene.get_node("YSort/Lamp")) == rooms[0], "room_of maps Lamp -> Room1")
 	var crate: Node2D = placed["prop"]
@@ -290,3 +307,48 @@ func _test_factory_in_game() -> void:
 	scene.queue_free()
 	await frames(2)
 	DirAccess.remove_absolute(TMP.replace("res://", "user://") + "_save.json")
+
+
+# Stands in for EditorUndoRedoManager (editor-only): records the do/undo steps so the test can replay them.
+class UndoRecorder:
+	var do_calls: Array = []
+	var undo_calls: Array = []
+	func add_do_method(obj: Object, method: StringName, a: Variant, b: Variant) -> void:
+		do_calls.append([obj, method, [a, b]])
+	func add_undo_method(obj: Object, method: StringName, a: Variant, b: Variant) -> void:
+		undo_calls.append([obj, method, [a, b]])
+
+
+# Regression: Room2 is an instanced scene, and assigning objects to it used to be silently dropped on
+# save because "Editable Children" wasn't on for the instance.
+func _test_instanced_room_saves() -> void:
+	print("\n== Assigning to a room inside an instanced scene survives saving ==")
+	var edit_root: Node = (load(SCENE) as PackedScene).instantiate(PackedScene.GEN_EDIT_STATE_INSTANCE)
+	var room2: Node = edit_root.get_node("YSort/Room2/Room2")
+	# The real scene may already have Editable Children on for Room2; start from "off" to test the fix.
+	edit_root.set_editable_instance(edit_root.get_node("YSort/Room2"), false)
+	var needs := SceneTools.instances_needing_editable(edit_root, room2)
+	check(needs == [edit_root.get_node("YSort/Room2")], "Room2's instance is reported as needing Editable Children")
+	check(SceneTools.instances_needing_editable(edit_root, edit_root.get_node("YSort/Room1/Room1")).is_empty(), "Room1 (built in the scene) needs nothing")
+
+	var rec := UndoRecorder.new()
+	SceneTools.add_make_editable(rec, edit_root, room2)
+	check(rec.do_calls.size() == 1 and rec.undo_calls.size() == 1, "one do + one undo step added")
+	for c in rec.do_calls:
+		(c[0] as Object).callv(c[1], c[2])
+	# Table isn't in Room2's list in any saved version, so finding it after reload proves the save worked.
+	var list := SceneTools.reveal_nodes_of(room2)
+	list.append(room2.get_path_to(edit_root.get_node("YSort/Table")))
+	room2.set("reveal_nodes", list)
+
+	var packed := PackedScene.new()
+	var path := TMP + "/apartments_copy.tscn"
+	check(packed.pack(edit_root) == OK and ResourceSaver.save(packed, path) == OK, "scene packed and saved")
+	edit_root.free()
+	var back: Node = (ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene).instantiate()
+	var saved := SceneTools.reveal_nodes_of(back.get_node("YSort/Room2/Room2"))
+	check(saved.has(NodePath("../../Table")), "the new entry is still in Room2's list after save + reload (got %s)" % [saved])
+	back.free()
+
+	for c in rec.undo_calls:
+		check(c[1] == &"set_editable_instance" and c[2][1] == false, "undo turns Editable Children back off")

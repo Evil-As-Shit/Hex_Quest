@@ -5,7 +5,7 @@ extends SceneTree
 ## Prints PASS / FAIL per check and exits with a non-zero code if anything failed.
 ## It uses its own save file (user://smoke_test_save.json), so your real save is untouched.
 
-const SCENE := "res://The Game/2 -  The Apartments/The Apartments.tscn"
+const SCENE := "res://The Game/2 - The Apartments/The Apartments.tscn"
 const TEST_SAVE := "user://smoke_test_save.json"
 
 var failures := 0
@@ -15,6 +15,7 @@ var save_manager: Node
 var game_data: Node
 var signals: Node
 var dialogue_controller: GDScript
+var finished := false
 
 
 func _initialize() -> void:
@@ -22,13 +23,36 @@ func _initialize() -> void:
 	game_data = root.get_node("GameData")
 	signals = root.get_node("SignalController")
 	dialogue_controller = load("res://Scripts/DialogueController.gd")
+	# A script error inside the awaiting _run() silently abandons it, so the quit below would never be
+	# reached. This watchdog makes sure the test always ends, with a failure, instead of hanging.
+	create_timer(90.0).timeout.connect(_on_watchdog)
 	_run()
+
+
+func _on_watchdog() -> void:
+	check(false, "test finished within 90s (a script error or a stuck wait aborted the run)")
+	finish()
 
 
 func check(condition: bool, label: String) -> void:
 	print(("  PASS  " if condition else "  FAIL  ") + label)
 	if not condition:
 		failures += 1
+
+
+## Fails (instead of crashing the run) when a node the test needs isn't there.
+func need(node: Node, label: String) -> bool:
+	check(node != null, "found " + label)
+	return node != null
+
+
+func finish() -> void:
+	if finished:
+		return
+	finished = true
+	DirAccess.remove_absolute(TEST_SAVE)
+	print("\n%s (%d failure%s)" % ["ALL PASSED" if failures == 0 else "FAILED", failures, "" if failures == 1 else "s"])
+	quit(0 if failures == 0 else 1)
 
 
 func frames(n: int) -> void:
@@ -50,11 +74,34 @@ func stop_scene() -> void:
 
 
 func hexy() -> Node:
-	return scene.get_node("YSort/CharacterBody2D")
+	return scene.get_node_or_null("YSort/CharacterBody2D")
 
 
 func room() -> Node:
-	return scene.get_node("YSort/Room1/Room1")
+	return scene.get_node_or_null("YSort/Room1/Room1")
+
+
+## The NPC-script object that Room1 hides (its name has changed over time, so find it by script).
+func npc() -> Node:
+	var r := room()
+	if r == null:
+		return null
+	for path in r.reveal_nodes:
+		var n := r.get_node_or_null(path)
+		if n != null and n.get_script() != null and n.get_script().resource_path.ends_with("/NPC.gd") and n.get_node_or_null("Sprite") != null:
+			return n
+	return null
+
+
+## The phone (the UI node running Phone.gd), found by script since it's nested in the UI scene.
+func phone() -> Node:
+	var ui := scene.get_node_or_null("UI")
+	if ui == null:
+		return null
+	for n in ui.find_children("*", "Control", true, false):
+		if n.get_script() != null and n.get_script().resource_path == "res://Scripts/UI/Phone.gd":
+			return n
+	return null
 
 
 func stand_on(object: Node) -> void:
@@ -82,14 +129,21 @@ func _run() -> void:
 
 	print("\n== Startup ==")
 	await start_scene()
+	if not (need(hexy(), "Hexy") and need(room(), "Room1") and need(npc(), "an NPC hidden by Room1")):
+		finish()
+		return
 	check(save_manager._enabled, "GameController enabled saving for the scene")
 	check(game_data.dict_dialogue.size() > 0, "dialogue loaded by GameData (%d entries)" % game_data.dict_dialogue.size())
 	check(not room().is_revealed, "Room1 starts hidden")
 	check(room()._items.size() == 9 or room()._items.size() > 6, "Room1 collected its sprites (%d)" % room()._items.size())
-	var npc: Node = scene.get_node("YSort/NPC")
-	check(npc.get_node("Sprite").material != null, "NPC sprite is hidden with the room (it used to float in the void)")
-	check(scene.get_node("YSort/NPC3/Sprite").material == null, "NPC3 on the balcony stays visible")
+	check(npc().get_node("Sprite").material != null, "NPC sprite is hidden with the room (it used to float in the void)")
+	# (the old balcony NPC is gone; the Balcony's own sprite is likewise not part of Room1)
+	var balcony_sprite := scene.get_node_or_null("YSort/Balcony/Balcony_Sprite")
+	check(balcony_sprite != null and balcony_sprite.material == null, "the Balcony stays visible (not part of Room1)")
 	check(hexy()._area_node != null and hexy()._area_node.name == "Balcony", "Hexy starts in the Balcony area")
+	# a new game starts with a dead phone, and the phone keeps PHONE_CHARGE_ZERO set while it is
+	if need(phone(), "the phone (Phone.gd under UI)"):
+		check(phone().battery_state == 0 and game_data.has_tag("PHONE_CHARGE_ZERO"), "fresh scene: phone battery is DEAD and PHONE_CHARGE_ZERO is set")
 
 	print("\n== Room reveal ==")
 	var start_pos: Vector2 = hexy().global_position
@@ -99,15 +153,18 @@ func _run() -> void:
 	check(room()._fade_material != null, "fade is in progress right after entering")
 	await create_timer(1.0).timeout
 	check(room()._fade_material == null, "fade finished and the shader material was removed")
-	check(npc.get_node("Sprite").material == null, "NPC sprite back to a normal material")
+	check(npc().get_node("Sprite").material == null, "NPC sprite back to a normal material")
 	check(save_manager.has_save(), "autosave happened on reveal")
 
 	print("\n== Interactions ==")
-	var lamp: Node = scene.get_node("YSort/Lamp")
+	var lamp: Node = scene.get_node_or_null("YSort/Lamp")
+	var chair: Node = scene.get_node_or_null("YSort/Chair")
+	if not (need(lamp, "Lamp") and need(chair, "Chair")):
+		finish()
+		return
 	await stand_on(lamp)
 	await press("interact")
 	check(lamp.is_on, "E toggles the lamp on")
-	var chair: Node = scene.get_node("YSort/Chair")
 	await stand_on(chair)
 	await press("interact")
 	check(hexy().is_sitting, "E on a chair sits Hexy down")
@@ -116,9 +173,10 @@ func _run() -> void:
 
 	print("\n== Save / load round trip ==")
 	DirAccess.remove_absolute(TEST_SAVE)
+	var tags_before: int = game_data.dialogue_tags.size() # (the phone may keep a tag of its own set)
 	game_data.add_tag("TEST_TAG")
 	game_data.add_tag("TEST_TAG") # duplicates must not pile up
-	check(game_data.dialogue_tags.size() == 1, "tags are a set (no duplicates)")
+	check(game_data.dialogue_tags.size() == tags_before + 1 and game_data.has_tag("TEST_TAG"), "tags are a set (no duplicates)")
 	check(save_manager.save_game(), "save_game() succeeds")
 	var text := FileAccess.get_file_as_string(TEST_SAVE)
 	var saved: Dictionary = JSON.parse_string(text)
@@ -127,12 +185,16 @@ func _run() -> void:
 
 	await stop_scene()
 	game_data.reset()
-	check(game_data.dialogue_tags.is_empty(), "GameData reset clears tags")
+	# (only the phone's dead-battery tag may be re-added by a reset)
+	check(not game_data.has_tag("TEST_TAG") and game_data.dialogue_tags.keys().all(func(t): return t == "PHONE_CHARGE_ZERO"), "GameData reset clears tags")
 	await start_scene() # a brand new session: everything is back to defaults...
+	if not (need(hexy(), "Hexy (after restart)") and need(room(), "Room1 (after restart)") and need(npc(), "the NPC (after restart)") and need(scene.get_node_or_null("YSort/Lamp"), "Lamp (after restart)") and need(scene.get_node_or_null("InputController"), "InputController")):
+		finish()
+		return
 	check(not room().is_revealed or save_manager.has_save(), "(new scene)")
 	await frames(3) # ...then GameController's deferred load restores the save
 	check(room().is_revealed, "Room1 is still revealed after restart")
-	check(room()._fade_material == null and scene.get_node("YSort/NPC/Sprite").material == null, "revealed instantly, no fade or shader left")
+	check(room()._fade_material == null and npc().get_node("Sprite").material == null, "revealed instantly, no fade or shader left")
 	check(scene.get_node("YSort/Lamp").is_on, "lamp is still on")
 	check(game_data.has_tag("TEST_TAG"), "dialogue tag restored")
 	check(hexy().global_position.distance_to(sit_pos) < 0.01, "Hexy is back at the chair")
@@ -155,7 +217,7 @@ func _run() -> void:
 	f.close()
 	save_manager.load_game()
 	await frames(2)
-	check(not room().is_revealed and scene.get_node("YSort/NPC/Sprite").material != null, "loading a save made before Room1 was revealed hides it again")
+	check(not room().is_revealed and npc().get_node("Sprite").material != null, "loading a save made before Room1 was revealed hides it again")
 	hexy().global_position = Vector2(-20, -30)
 	hexy()._checked_position = Vector2.INF
 	hexy()._area_node = null
@@ -179,7 +241,10 @@ func _run() -> void:
 	signals.display_dialogue.disconnect(on_display)
 
 	# the typewriter tween
-	var box: Control = scene.get_node("UI/DialogueBox")
+	var box: Control = scene.get_node_or_null("UI/DialogueBox")
+	if not need(box, "UI/DialogueBox"):
+		finish()
+		return
 	game_data.dict_dialogue["T_D"] = {"id": "T_D", "text": "Hello there, world", "expression": null, "isEnd": true}
 	signals.display_dialogue.emit("T_D")
 	check(box.visible and game_data.flag_displaying_dialogue, "dialogue box opens and types")
@@ -197,6 +262,18 @@ func _run() -> void:
 	await create_timer(0.7).timeout
 	check(not game_data.flag_waiting_dialogue_next, "closing mid-typing leaves no stale callback")
 
+	print("\n== Phone battery ==")
+	var ph := phone()
+	if need(ph, "the phone (Phone.gd under UI)"):
+		game_data.reset() # a fresh game: dead battery
+		check(ph.battery_state == 0 and game_data.has_tag("PHONE_CHARGE_ZERO"), "reset: battery DEAD, PHONE_CHARGE_ZERO set")
+		game_data.add_tag("PHONE_CHARGE")
+		check(ph.battery_state == 1 and not game_data.has_tag("PHONE_CHARGE_ZERO"), "PHONE_CHARGE: battery CHARGING, PHONE_CHARGE_ZERO removed")
+		game_data.load_state({"dialogue_tags": ["PHONE_CHARGE", "PHONE_CHARGE_FULL"]})
+		var sprite: AnimatedSprite2D = ph.battery_sprite
+		check(ph.battery_state == 2 and not game_data.has_tag("PHONE_CHARGE_ZERO"), "loading charged tags: battery FULL")
+		check(sprite.animation == &"Charges" and sprite.frame == sprite.sprite_frames.get_frame_count("Charges") - 1, "FULL battery shows the last 'Charges' frame (frame %d)" % sprite.frame)
+
 	print("\n== Robustness ==")
 	var bad := FileAccess.open(TEST_SAVE, FileAccess.WRITE)
 	bad.store_string("{ this is not json")
@@ -206,6 +283,4 @@ func _run() -> void:
 	check(true, "a corrupt save file doesn't crash")
 	check(not save_manager._is_loading, "and doesn't leave the loader stuck")
 
-	DirAccess.remove_absolute(TEST_SAVE)
-	print("\n%s (%d failure%s)" % ["ALL PASSED" if failures == 0 else "FAILED", failures, "" if failures == 1 else "s"])
-	quit(0 if failures == 0 else 1)
+	finish()

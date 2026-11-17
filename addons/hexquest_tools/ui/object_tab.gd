@@ -463,6 +463,7 @@ func _place_in_scene(scene_path: String, type: int) -> String:
 		var old := SceneTools.reveal_nodes_of(room)
 		var updated := old.duplicate()
 		updated.append(NodePath(str(room.get_path_to(parent)) + "/" + str(inst.name)))
+		SceneTools.add_make_editable(ur, root, room)
 		ur.add_do_property(room, "reveal_nodes", updated)
 		ur.add_undo_property(room, "reveal_nodes", old)
 		assigned = " and added to %s's reveal list" % room.name

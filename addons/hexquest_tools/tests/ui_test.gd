@@ -10,8 +10,9 @@ const MainScreen := preload("res://addons/hexquest_tools/ui/main_screen.gd")
 const IdList := preload("res://addons/hexquest_tools/ui/id_list_editor.gd")
 const ObjectTab := preload("res://addons/hexquest_tools/ui/object_tab.gd")
 const SceneTab := preload("res://addons/hexquest_tools/ui/scene_tab.gd")
+const SceneTools := preload("res://addons/hexquest_tools/core/scene_tools.gd")
 const ProblemsTab := preload("res://addons/hexquest_tools/ui/problems_tab.gd")
-const SCENE := "res://The Game/2 -  The Apartments/The Apartments.tscn"
+const SCENE := "res://The Game/2 - The Apartments/The Apartments.tscn"
 const TMP_DB := "user://ui_test_dialogue.json"
 
 var failures := 0
@@ -59,7 +60,7 @@ func _dialogue_tab(main: Control) -> void:
 	print("\n== Dialogue tab ==")
 	var tab = main.dialogue_tab
 	var db: DialogueDB = Ctx.get_db()
-	check(tab._list.item_count == 36, "lists all 36 lines")
+	check(db.entries.size() > 0 and tab._list.item_count == db.entries.size(), "lists all %d lines" % db.entries.size())
 	check(not main._save.disabled == false or true, "(save button state is tracked)")
 
 	tab.select_id("ITM010")
@@ -155,6 +156,7 @@ func _dialogue_tab(main: Control) -> void:
 	dlg._requires.text = "REQ_T"
 	dlg._adds.text = "ADD_T"
 	dlg._create()
+	dlg.hide() # (pressing OK would have closed it; otherwise it stays an exclusive popup)
 	await frames()
 	check(db.get_entry("NPC012")["tagRequired"] == "REQ_T" and db.get_entry("NPC014")["tagAdd"] == "ADD_T", "created chain carries both tags")
 	check(db.get_entry("NPC013")["expression"] == "witch_happy" and db.get_entry("NPC012")["expression"] == "witch_stare", "per-line and default portraits both work")
@@ -259,21 +261,57 @@ func _scene_and_problems(main: Control) -> void:
 	while it:
 		names.append(it.get_text(0))
 		it = it.get_next()
-	check(names.size() == 2 and str(names[0]).contains("Room1") and str(names[0]).contains("9"), "lists Room1 with its 9 hidden nodes (%s)" % [names])
+	# rows: Room1, Room2 (a second room was added), then the "visible from the start" group
+	var room2_count := SceneTools.reveal_nodes_of(scene.get_node("YSort/Room2/Room2")).size()
+	check(names.size() == 3 and str(names[0]).contains("Room1") and str(names[0]).contains("9") and str(names[1]).contains("Room2") and str(names[1]).contains("(%d hidden" % room2_count), "lists Room1 with its 9 hidden nodes and Room2 with %d (%s)" % [room2_count, names])
 	var room_item: TreeItem = tab._tree.get_root().get_first_child()
 	var rows := 0
 	var row: TreeItem = room_item.get_first_child()
 	var npc_text := ""
 	while row:
 		rows += 1
-		if row.get_text(0) == "NPC":
+		if row.get_text(0) == "Charater_Test": # the Apartments NPC (formerly "NPC"); says NPC002 first
 			npc_text = row.get_text(2)
 		row = row.get_next()
 	check(rows == 9, "all 9 rows resolved")
-	check(npc_text != "", "NPC row shows what it says: '%s'" % npc_text)
-	check(tab._room_pick.item_count == 1, "room dropdown lists Room1")
+	check(npc_text != "" and npc_text.begins_with(Ctx.get_db().label_for("NPC002", 40)), "NPC row shows what it says: '%s'" % npc_text)
+	check(tab._room_pick.item_count == 2 and tab._room_pick.get_item_text(0) == "Room1" and tab._room_pick.get_item_text(1) == "Room2", "room dropdown lists Room1 and Room2")
+
+	# Lamp2 and Chair2 stand in Room2's floor but aren't in its list yet, so auto-assign has something to offer
+	var suggestions := SceneTools.suggest_assignments(scene)
+	var all_unassigned := true
+	var suggested := 0
+	for r in suggestions:
+		for n in suggestions[r]:
+			suggested += 1
+			all_unassigned = all_unassigned and SceneTools.room_of(scene, n) == null
+	check(all_unassigned, "auto-assign only ever suggests objects no room lists yet (%d suggested)" % suggested)
+	# assign them in memory (the scene is never saved); now everything inside a room is assigned
+	for r in suggestions:
+		var list := SceneTools.reveal_nodes_of(r)
+		for n in suggestions[r]:
+			list.append(r.get_path_to(n))
+		r.reveal_nodes = list
 	tab._on_auto()
 	check(tab._info.text.contains("Nothing to assign"), "auto-assign finds nothing when everything is already assigned")
+
+	# Manual Assign: the picked room must survive the tab being shown again (selecting a node in the
+	# Scene dock flips to the 2D view, and coming back calls refresh()). It used to reset to Room1.
+	tab._room_pick.select(1)
+	tab.refresh()
+	check(tab._room_pick.get_item_text(tab._room_pick.selected) == "Room2", "room dropdown keeps Room2 after a refresh")
+	var table: Node = scene.get_node("YSort/Table")
+	var room1: Node = scene.get_node("YSort/Room1/Room1")
+	var room2: Node = scene.get_node("YSort/Room2/Room2")
+	tab.assign_to_picked_room([table])
+	check(SceneTools.room_of(scene, table) == room2, "Assign moves the selected Table into Room2")
+	check(not SceneTools.reveal_nodes_of(room1).any(func(p): return room1.get_node_or_null(p) == table), "...and out of Room1 (a node belongs to one room)")
+	check(tab._info.text.contains("Added Table to Room2"), "Assign says what it did: '%s'" % tab._info.text)
+	check(tab._room_pick.get_item_text(tab._room_pick.selected) == "Room2", "dropdown still on Room2 after assigning")
+	tab.assign_to_picked_room([table])
+	check(tab._info.text.contains("already in Room2"), "assigning again says it's already there: '%s'" % tab._info.text)
+	tab.assign_to_picked_room([])
+	check(tab._info.text.contains("Select the objects"), "assigning with nothing selected explains what to do")
 
 	var problems = main.tabs.get_child(3)
 	problems.refresh()
