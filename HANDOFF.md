@@ -1,7 +1,9 @@
 # HexQuest: handoff to Claude Code
 
-This summarises a long working session so a fresh Claude Code session can continue without re-deriving anything.
-Everything below was verified by actually running Godot 4.2.2 unless marked **(unverified)**.
+This summarises the working sessions so far so a fresh Claude Code session can continue without re-deriving anything.
+The project was built on Godot 4.2.2 and has since been **upgraded to Godot 4.7** (the user's editor is 4.7.2 from
+Steam). Everything below was verified by running Godot unless marked **(unverified)**; the 4.2-era notes in section 5
+were found on 4.2 and may or may not still apply on 4.7.
 
 
 
@@ -16,7 +18,8 @@ Everything below was verified by actually running Godot 4.2.2 unless marked **(u
 
 ## 2. The project
 
-* **HexQuest**: a 2D pixel-art game in **Godot 4.2.2**, GDScript, **GL Compatibility** renderer, 1080x720 viewport
+* **HexQuest**: a 2D pixel-art game in **Godot 4.7** (`config/features` in `project.godot`; scene files use the
+  4.6+ format with `unique_id=`, so don't open them in an older editor), GDScript, **GL Compatibility** renderer, 1080x720 viewport
   stretch, nearest texture filtering. Repo: `github.com/Evil-As-Shit/Hex_Quest`.
 * Player character is **Hexy** (pronouns unknown: **use neutral wording** in comments and docs).
 * Playable scenes: `The Game/2 - The Apartments/The Apartments.tscn` and `The Game/1 - TheSat/Scenes/the_satellite.tscn`.
@@ -53,6 +56,17 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
 * Tags are a `Dictionary` used as a set (`GameData.add_tag / has_tag`). Typewriter text is a tween
   (`Scripts/UI/DialogueBox.gd`). The dialogue box has exactly **2** choice buttons.
 
+### Tags as signals, and the phone battery
+* `GameData.add_tag(tag)` ignores duplicates and emits `SignalController.tag_added(tag)`; `remove_tag(tag)` emits
+  `tag_removed`. `load_state()` and `reset()` emit `tags_loaded` (all tags replaced at once). Systems that react to a
+  tag listen to these signals; don't special-case tags inside `GameData`.
+* `Scripts/UI/Phone.gd` derives the battery (`Battery.DEAD / CHARGING / FULL`) from the tags `PHONE_CHARGE` and
+  `PHONE_CHARGE_FULL` (set by the Charger's dialogue, ITM010 -> ITM011 -> ITM012), so it needs no save data of its own.
+  Live tag changes animate (Charging plays one loop, then holds the last "Charges" frame); `tags_loaded` snaps to the
+  right picture. The phone also keeps `PHONE_CHARGE_ZERO` set while the battery is dead (NPC002 needs it), including
+  right after a new game. The sprite node is `UI/PhoneControl/Battery`. The "Dying" animation exists but isn't used yet
+  (no battery drain).
+
 ### Room reveal (hidden until entered, permanent)
 * `Scripts/Room.gd` (`class_name Room`) sits on the room's `Area2D`. `reveal_nodes: Array[NodePath]` lists the room
   sprite plus every object inside it. Hexy tells the room directly (`area.on_player_entered`) when its position
@@ -60,6 +74,8 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
 * Hidden state = a **per-room** `ShaderMaterial` using `Assets/Shaders/pixel_reveal.gdshader` (uniforms `reveal`
   0..1, `block_size`). After the fade the material is removed, so there is no ongoing cost.
 * Objects stay in the `YSort` node (needed for depth sorting), so the `reveal_nodes` list is what ties them to a room.
+* Rooms in The Apartments: `Room1` is built in the scene; `Room2` is an instanced scene (`Scenes/Rooms/Room2.tscn`)
+  with "Editable Children" on, which is what lets its `reveal_nodes` override (Lamp2, Chair2) be saved.
 
 ### Save/load (`Scripts/SaveManager.gd`)
 * One file: `user://savegame.json` (atomic write via temp file + rename). F5 save, F9 load, F10 delete + new game
@@ -99,10 +115,18 @@ rename-id edits `.tscn` files as text and the editor then prompts to reload.
    moved to `Scripts/Objects/` (and the path fixed in `the_satellite.tscn`).
 2. **Room reveal + save/load** (sections 3).
 3. **HexQuest Tools plugin** (section 3), including a project-wide validator.
+4. **Session 2 (Claude Code, Windows, Godot 4.7.2)**, three commits:
+   * Phone battery driven by tags (section 3).
+   * Tests brought up to date with the current data: the scene path had a double space; the smoke test now has a
+     watchdog and null-checked lookups so it can't hang; counts and node lookups derive from the data (NPC is found by
+     script, it's now called `Charater_Test`); battery checks added.
+   * HexQuest Tools: room assignment to an instanced room was silently dropped on save (now turns on Editable
+     Children, undoably, via `SceneTools.add_make_editable`); the Scene & Rooms tab's room dropdown reset to Room1
+     every time the tab was shown again (now kept), and Assign always reports what it did. Regression tests for both.
 
 ## 5. Gotchas learned the hard way (please don't relearn these)
 
-**GDScript / Godot 4.2**
+**GDScript / Godot 4.2** (found on 4.2; most likely still true on 4.7)
 * `_set` and `_get` are reserved Object virtuals. Do not name your own methods that.
 * `:=` fails to infer from a dynamically typed value (e.g. `var x := some_untyped_call()`). Annotate the type.
 * `JSON.stringify(data, "\t", false)`: the third argument must be `false` or keys get alphabetised.
@@ -133,9 +157,15 @@ rename-id edits `.tscn` files as text and the editor then prompts to reload.
   Anything new that edits instanced children must do the same.
 
 ## 6. Environment notes for verification
-* The session had a Linux sandbox with Godot 4.2.2 (downloaded from the official GitHub release) and
+* **User's Windows machine:** Godot is `C:\Program Files\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe`
+  (4.7.2). It's a GUI build: it prints nothing to the console and `&` returns immediately, so run it with
+  `Start-Process ... -PassThru`, `--log-file <path>`, and a timeout (`WaitForExit(180000)`, then stop **only that PID**:
+  the user may have the editor open). `git` isn't on PATH; Sourcetree's bundled one is at
+  `%LOCALAPPDATA%\Atlassian\SourceTree\git_local\cmd\git.exe`. The user commits via Sourcetree; local commits from
+  Claude are fine, never push.
+* The first session had a Linux sandbox with Godot 4.2.2 (downloaded from the official GitHub release) and
   `xvfb` + Mesa software GL, which allowed real rendering/screenshots and running the real editor.
-  On the user's machine just use their installed Godot 4.2.x.
+  On the user's machine use their installed Godot 4.7 (see above).
 * Rendering test pattern: `xvfb-run -a godot --path . --rendering-method gl_compatibility --rendering-driver opengl3 --windowed --resolution 1080x720 -s <script>`, where the script saves
   `root.get_viewport().get_texture().get_image()` to PNG after some frames.
 * Editor test pattern: copy the project to a temp dir, add a throw-away `@tool` EditorPlugin (not shipped) that waits a
@@ -143,33 +173,37 @@ rename-id edits `.tscn` files as text and the editor then prompts to reload.
   launch with `godot --editor --path <tmp>` under `xvfb-run`. Never run this against the real project.
 
 ## 7. How to run the tests
-From the project root (replace `godot` with your Godot 4.2 executable). First open the project in the editor once,
-or run `godot --headless --import`.
+From the project root (replace `godot` with your Godot 4.7 executable; on Windows see section 6 for how to capture
+output). First open the project in the editor once, or run `godot --headless --import`.
 
 ```
 godot --headless -s res://Tests/smoke_test.gd                              # reveal, interactions, dialogue, save/load
 godot --headless -s res://addons/hexquest_tools/tests/core_test.gd         # DialogueDB, validator, factory, scene tools
 godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd           # drives the tool panels
 ```
-Each prints PASS/FAIL lines and exits non-zero on failure. All three passed at the end of the session, also from a
-wiped `.godot/` cache. One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
+Each prints PASS/FAIL lines and exits non-zero on failure. All three pass on Godot 4.7.2 as of session 2
+(smoke 59, core 80, ui 70 checks). One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
 deliberately writes a corrupt save). Tests use their own save/dialogue files and clean up after themselves.
 
 ## 8. Known issues and data problems
-* **Broken dialogue data:** `NPC005` has `divert: "NPC006"` but `NPC006` doesn't exist (the Problems tab reports it).
-* Tags required but never set by any line: `FIRST_SOUL_COMPLETED` (ITM021, NPC010) and `PHONE_CHARGE_ZERO` (NPC002).
-  Fine if code sets them, otherwise those lines never show.
+* ~~`NPC005 -> NPC006`~~ fixed in the data (the Problems tab shows 0 errors).
+* `FIRST_SOUL_COMPLETED` (ITM021, NPC010) is required but never set, so those lines never show.
+  `PHONE_CHARGE_ZERO` is set by `Phone.gd` (the Problems tab still warns about it; that warning is expected).
+* The Charger always asks "Would you like to charge your phone?" even when it's full (Yes then says "already charged").
+* The tests reference current node names (`Charater_Test`, `Table`, `Room2`); renaming those means updating tests.
 * Two Godot-generated `.import` files are untracked in the repo (`hexy stand.png.import`,
   `witch_confused.png.import`). Commit them or ignore them, the user hasn't decided.
 * Dialogue-tab edits (delete, duplicate, text) are **not undoable**; Reload from disk or git is the escape hatch.
 * Creating a conversation saves `dialogue.txt` immediately, including other pending edits (by design).
 * Only 2 choices per question (the dialogue box has 2 buttons).
-* **(unverified)** Windows/macOS behaviour, exported builds (needs `*.txt` in the export filter so
-  `dialogue.txt` ships), and 2D movement smoothness on >60 Hz displays (Godot 4.2 has no 2D physics interpolation;
-  Hexy moves in `_physics_process` at 60 Hz).
+* **(unverified)** macOS behaviour, exported builds (needs `*.txt` in the export filter so
+  `dialogue.txt` ships), and 2D movement smoothness on >60 Hz displays (Hexy moves in `_physics_process` at 60 Hz;
+  Godot 4.2 had no 2D physics interpolation, but 4.7 has it under Project Settings > Physics > Common, which may
+  fix this).
 
 ## 9. Suggested next steps (pick with the user)
-1. Fix `NPC005 -> NPC006` and decide what to do about the unset tags.
+1. Decide what sets `FIRST_SOUL_COMPLETED`. Battery follow-ups: drain (the "Dying" animation), and
+   whether the Charger should skip its question when the phone is full.
 2. Main menu / Continue button using `SaveManager.has_save()` and `load_game()` (scene-change loading is
    implemented but only lightly exercised).
 3. More rooms and objects using the Objects tab; wire `TheSat` into the same flow if it should share the save.
@@ -191,7 +225,7 @@ deliberately writes a corrupt save). Tests use their own save/dialogue files and
 Save the block below as `CLAUDE.md` in the repo root. Claude Code reads it automatically at the start of every session.
 
 ````markdown
-# HexQuest (Godot 4.2.2, GDScript, GL Compatibility)
+# HexQuest (Godot 4.7, GDScript, GL Compatibility)
 
 ## Rules
 - Tabs only in .gd files. Use typed signals: `SignalController.x.emit(...)`, never `emit_signal("x")`.
@@ -200,6 +234,8 @@ Save the block below as `CLAUDE.md` in the repo root. Claude Code reads it autom
 - Autoload scripts must not depend on global `class_name`s (use `preload`).
 - Addon scripts (`addons/hexquest_tools`) are `@tool`, never use `class_name`, and use `preload`.
 - Don't name methods `_set` / `_get`. Annotate types when `:=` can't infer.
+- React to dialogue tags via `SignalController.tag_added` / `tags_loaded`, not by special-casing in GameData.
+- Tool code that edits nodes inside an instanced scene must turn on Editable Children (`SceneTools.add_make_editable`).
 
 ## Architecture in one paragraph
 Autoloads: SignalController -> GameData -> SaveManager. E key -> `interaction_check` -> `Hexy.interact_nearby()` finds an
@@ -213,7 +249,8 @@ only saves if it contains a `GameController`.
     godot --headless -s res://Tests/smoke_test.gd
     godot --headless -s res://addons/hexquest_tools/tests/core_test.gd
     godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd
-(One "save file is corrupt" error line in smoke_test is expected.) In `-s` test scripts, fetch autoloads via
+(One "save file is corrupt" error line in smoke_test is expected. On Windows, see HANDOFF.md section 6 for running
+the GUI Godot build with --log-file and a timeout.) In `-s` test scripts, fetch autoloads via
 `root.get_node(...)`, use `root.push_input()` for input, and set `current_scene`.
 
 ## Update HANDOFF.md with any relevent information needed for future use.
