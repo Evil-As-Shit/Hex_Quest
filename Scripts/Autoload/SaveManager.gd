@@ -10,6 +10,8 @@ extends Node
 ## add_to_group(SaveManager.GROUP) in its _ready() and add those three functions.
 ##
 ## Controls: F5 quick save, F9 quick load, F10 deletes the save and restarts (debug builds only).
+## The main menu uses start_new_game() / continue_game(); a game scene started any other way (e.g. run
+## directly from the editor) still restores the last save that belongs to it.
 
 signal game_saved
 signal game_loaded
@@ -28,6 +30,7 @@ var save_path: String = SAVE_PATH
 
 var _enabled: bool = false # only game scenes that contain a GameController save/load
 var _is_loading: bool = false
+var _skip_next_load: bool = false # set by start_new_game: the next game scene starts fresh
 var _toast: Label
 var _toast_tween: Tween
 
@@ -63,9 +66,41 @@ func _notification(what: int) -> void:
 ## Called by GameController when a game scene is ready.
 func register_scene() -> void:
 	_enabled = true
+	if _skip_next_load: # New Game from the menu
+		_skip_next_load = false
+		return
 	if LOAD_ON_START and has_save():
 		# Deferred so every node in the scene has finished _ready() first.
 		load_game.call_deferred(false)
+
+
+## Called by the main menu: no saving or loading while it's up (quitting from the menu
+## must not save "the menu" as the place to continue from).
+func unregister_scene() -> void:
+	_enabled = false
+
+
+## Main menu "New Game": a fresh game in `scene_path`. The old save is left alone until this game
+## first saves (autosave on entering a room, or on quit), which overwrites it.
+func start_new_game(scene_path: String) -> void:
+	GameData.reset()
+	_skip_next_load = true
+	if get_tree().change_scene_to_file(scene_path) != OK:
+		_skip_next_load = false
+		push_error("SaveManager: can't open %s" % scene_path)
+
+
+## Main menu "Load Game": opens the scene the save belongs to; that scene's GameController then
+## restores the save as it starts (register_scene). Returns false if there's no usable save.
+func continue_game() -> bool:
+	var data := _read_save()
+	var scene_path: String = data.get("scene", "")
+	if data.is_empty() or scene_path == "" or not ResourceLoader.exists(scene_path):
+		_show_toast("Couldn't load the save")
+		return false
+	GameData.reset()
+	_skip_next_load = false
+	return get_tree().change_scene_to_file(scene_path) == OK
 
 
 func has_save() -> bool:

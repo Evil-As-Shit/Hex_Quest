@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="HexQuest"
-run/main_scene="uid://bjf0wgc4dwc6s"
+run/main_scene="uid://bltl6fc0kes0w"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
