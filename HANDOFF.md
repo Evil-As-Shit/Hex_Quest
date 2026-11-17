@@ -65,7 +65,10 @@ case-only renames on Windows (git has `ignorecase` on): go through a temporary n
   `phone_open`; dropped if the phone dies meanwhile),
   `phone_ded` (battery hits 0 during play, not on load), `phone_charged` (charging finishes), `blip.wav` on every
   typed letter (DialogueBox typewriter is a `tween_method`; spaces/punctuation are silent; stops 0.06 s after the
-  line finishes or when E skips it), menu music (`MainMenu.music`, fades in, fades out on New/Load Game).
+  line finishes or when E skips it), menu music (`MainMenu.music`, starts at full volume, fades out on New/Load Game), `ui_noise` when the PLAYER
+  moves the selection between buttons (AudioManager notes a `ui_up/down/left/right/focus_next/prev` press in
+  `_input`, which runs before the GUI, then plays on the root viewport's `gui_focus_changed` in that same frame;
+  focus set from code, pressing a button and advancing dialogue are silent).
 * Menu music is `sand-frand-_main-menu_.ogg` (334 s, ~5 MB; it replaced a 59 MB WAV, never committed). Keep long
   music as .ogg: it streams, and big WAVs bloat the repo (GitHub warns at 50 MB, rejects 100 MB).
 
@@ -159,7 +162,7 @@ Everything interactable extends `Scripts/Objects/Interactable.gd` (`NPC.gd`, `Ch
   ("default" animation, centred at 540,360 like the menu background; a black 1080x720 GradientTexture2D placeholder)
   covers the screen for `duration` s with `GameData.is_in_cutscene` on (InputController ignores everything but Esc),
   then `SaveManager.go_to_level(next_scene)`.
-  * In the satellite: `SAT011` "Off I go then!" (the Door) -> The Apartments, 5 s.
+  * In the satellite: `SAT011` "Off I go then!" (the Door) -> The Apartments (duration set in the scene; 3 s now).
   * `go_to_level`: the next level starts fresh (an old save for it is NOT loaded), GameData tags carry over, nodes in
     group `SaveManager.GROUP_CARRY` ("persist_across_levels"; the phone) carry their state, and the game saves as
     soon as the level is ready so Load Game continues there. Hexy/rooms are per level and don't carry.
@@ -278,7 +281,7 @@ godot --headless -s res://Tests/transition_test.gd                         # sat
 godot --headless -s res://Tests/audio_test.gd                              # when each sound plays
 ```
 Each prints PASS/FAIL lines and exits non-zero on failure. All three pass on Godot 4.7.2 as of session 2
-(smoke 93, core 80, ui 71, menu 23, transition 22, audio 19 checks). In a `-s` script, autoloads' `_ready()`
+(smoke 93, core 80, ui 71, menu 23, transition 22, audio 38 checks). In a `-s` script, autoloads' `_ready()`
 runs after `_initialize()`: await a frame before using their internals. `menu_test`, `transition_test` and
 `audio_test` register an `OS.add_logger()` Logger and fails on any
 engine/script error printed during the run (script errors don't stop a test on their own); worth copying into the

@@ -94,7 +94,7 @@ func _run() -> void:
 	var all_loaded := true
 	for sfx_name in audio.SFX:
 		all_loaded = all_loaded and audio.SFX[sfx_name] is AudioStream
-	check(all_loaded and audio.SFX.size() == 5, "all 5 sound effects load (%s)" % [audio.SFX.keys()])
+	check(all_loaded and audio.SFX.size() == 6, "all 6 sound effects load (%s)" % [audio.SFX.keys()])
 	check(audio.TALK.resource_path.ends_with("blip.wav"), "the talking sound is blip.wav")
 
 	game_data.reset()
@@ -188,14 +188,66 @@ func _run() -> void:
 	check(count(&"phone_boot") == 0, "if the phone dies during the delay, no boot sound")
 	signals.toggle_phone.emit()
 
+	print("\n== ui_noise: phone ==")
+	ph.load_state({"charge": ph.max_charge}) # on, no animation
+	played.clear()
+	signals.toggle_phone.emit()
+	await frames(2)
+	check(ph.home.has_focus() and count(&"ui_noise") == 0, "opening the phone (focus on Home) is silent")
+	await press("ui_up")
+	var phone_focus := ph.get_viewport().gui_get_focus_owner()
+	check(phone_focus != null and phone_focus != ph.home and count(&"ui_noise") == 1, "moving the selection on the phone plays ui_noise (now on %s)" % [phone_focus.name if phone_focus else "nothing"])
+	await press("interact") # pressing a phone button
+	check(count(&"ui_noise") == 1, "pressing a phone button doesn't")
+	signals.toggle_phone.emit()
+
+	print("\n== ui_noise: dialogue choices ==")
+	game_data.dict_dialogue["T_CHOICE"] = {"id": "T_CHOICE", "text": "Pick", "expression": null, "choices": ["A", "B"], "choice_0": ["T_SILENT"], "choice_1": ["T_SILENT"]}
+	signals.display_dialogue.emit("T_CHOICE")
+	await create_timer(0.4).timeout # typed; the choices appear with the first one focused
+	played.clear()
+	await frames(2)
+	check(box.get_node("Button0").has_focus() and count(&"ui_noise") == 0, "choices appearing is silent")
+	await press("ui_right")
+	check(box.get_node("Button1").has_focus() and count(&"ui_noise") == 1, "moving between choices plays ui_noise")
+	await press("interact") # choose
+	await frames(2)
+	check(count(&"ui_noise") == 1, "choosing an option doesn't")
+	await press("interact") # finish typing the next line
+	await press("interact") # advance / close it
+	check(count(&"ui_noise") == 1, "advancing dialogue doesn't")
+	signals.close_dialogue.emit()
+
 	print("\n== Menu music ==")
+	var f := FileAccess.open(TEST_SAVE, FileAccess.WRITE) # a save, so Load Game can be selected
+	f.store_string("{\"version\":1,\"scene\":\"\",\"game\":{},\"nodes\":{}}")
+	f.close()
 	played.clear()
 	change_scene_to_file(MENU)
 	await frames(5)
 	var menu: Node = current_scene.find_child("MainMenuBox", true, false)
 	check(count(&"music") == 1 and audio.current_music() == menu.music and audio._music.playing, "the menu starts its music (%s)" % audio.current_music().get_file())
+	check(is_equal_approx(audio._music.volume_db, 0.0), "at full volume straight away, no fade-in (%.1f dB)" % audio._music.volume_db)
 	check(audio._music.stream != null and audio._music.stream.get_length() > 300.0, "it's the full track (%.0f s)" % (audio._music.stream.get_length() if audio._music.stream else 0.0))
-	menu.new_game_button.pressed.emit() # no save, so New Game starts straight away
+
+	print("\n== ui_noise: main menu ==")
+	check(menu.new_game_button.has_focus() and count(&"ui_noise") == 0, "the menu opening (focus on New Game) is silent")
+	await press("ui_down")
+	check(menu.load_game_button.has_focus() and count(&"ui_noise") == 1, "down to Load Game: ui_noise")
+	await press("ui_up")
+	check(menu.new_game_button.has_focus() and count(&"ui_noise") == 2, "up to New Game: ui_noise")
+	await press("ui_up") # already at the top: the focus doesn't move
+	check(count(&"ui_noise") == 2, "no sound when the selection can't move")
+	await press("interact") # New Game with a save: the question opens with No focused
+	check(menu.confirm_no.has_focus() and count(&"ui_noise") == 2, "the question opening (focus on No) is silent")
+	await press("ui_left")
+	check(menu.confirm_yes.has_focus() and count(&"ui_noise") == 3, "No -> Yes: ui_noise")
+	await press("ui_cancel")
+	check(menu.new_game_button.has_focus() and count(&"ui_noise") == 3, "Esc back to the menu is silent")
+
+	DirAccess.remove_absolute(TEST_SAVE)
+	menu.refresh()
+	menu.new_game_button.pressed.emit() # no save now, so New Game starts straight away
 	check(audio.current_music() == "", "New Game fades the music out")
 	await create_timer(1.3).timeout
 	check(not audio._music.playing, "...and it has stopped after the fade")

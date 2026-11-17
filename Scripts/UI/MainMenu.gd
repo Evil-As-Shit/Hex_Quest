@@ -8,9 +8,9 @@ extends Control
 
 ## The level New Game starts in.
 @export_file("*.tscn") var new_game_scene: String = "res://The Game/1 - TheSat/Scenes/the_satellite.tscn"
-## Menu music: loops while the menu is up, fades out on New Game / Load Game.
+## Menu music: starts at full volume, loops while the menu is up, fades out on New Game / Load Game.
 @export_file("*.wav", "*.ogg", "*.mp3") var music: String = "res://Assets/Sounds/sand-frand-_main-menu_.ogg"
-const MUSIC_FADE := 1.0
+const MUSIC_FADE_OUT := 1.0
 
 @onready var title: Label = $Box/Title
 @onready var buttons: Control = $Box/Buttons
@@ -30,7 +30,7 @@ func _ready() -> void:
 	_close_confirm()
 	refresh()
 	if music != "":
-		AudioManager.play_music(music, MUSIC_FADE)
+		AudioManager.play_music(music, 0.0) # no fade-in
 
 
 ## Greys out Load Game when there's nothing to load.
@@ -50,14 +50,14 @@ func _on_new_game() -> void:
 
 
 func _start_new_game() -> void:
-	AudioManager.stop_music(MUSIC_FADE)
+	AudioManager.stop_music(MUSIC_FADE_OUT)
 	SaveManager.start_new_game(new_game_scene)
 
 
 func _on_load_game() -> void:
-	AudioManager.stop_music(MUSIC_FADE)
+	AudioManager.stop_music(MUSIC_FADE_OUT)
 	if not SaveManager.continue_game(): # couldn't load: stay on the menu, music back on
-		AudioManager.play_music(music, MUSIC_FADE)
+		AudioManager.play_music(music, 0.0)
 
 
 func _close_confirm() -> void:

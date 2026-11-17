@@ -14,6 +14,9 @@ extends Node
 ##   phone_charged              Phone.gd: charging finishes
 ##   blip (the "talking" sound) DialogueBox.gd: every letter as dialogue types out (not spaces/punctuation)
 ##   menu music                 MainMenu.gd (its `music` setting), loops until New Game / Load Game
+##   ui_noise                   here: whenever the PLAYER moves the selection between buttons (menu, phone,
+##                              dialogue choices...). Not when the game sets the focus (a menu opening, the
+##                              phone starting on Home, choices appearing), and not when a button is pressed.
 
 signal sound_played(sound_name: StringName) # for tests
 
@@ -23,7 +26,10 @@ const SFX := {
 	&"phone_boot": preload("res://Assets/Sounds/phone_boot.wav"),
 	&"phone_ded": preload("res://Assets/Sounds/phone_ded.wav"),
 	&"phone_charged": preload("res://Assets/Sounds/phone_charged.wav"),
+	&"ui_noise": preload("res://Assets/Sounds/ui_noise.wav"),
 }
+## Moving the selection between buttons (see _input / _on_focus_changed below).
+const NAV_ACTIONS := [&"ui_up", &"ui_down", &"ui_left", &"ui_right", &"ui_focus_next", &"ui_focus_prev"]
 const TALK := preload("res://Assets/Sounds/blip.wav") # (talking_sfx.wav was a placeholder, unused)
 
 const SFX_VOICES := 6 # sound effects that can overlap
@@ -46,6 +52,27 @@ func _ready() -> void:
 	_talk.stream = TALK
 	_music = _add_player(&"Music")
 	_music.finished.connect(_on_music_finished)
+	get_viewport().gui_focus_changed.connect(_on_focus_changed)
+
+
+# ---- UI navigation sound ----
+# Node _input() runs before the GUI handles an event, so a navigation key is noted here first; if the GUI then
+# moves the focus because of it, _on_focus_changed plays ui_noise. Focus set from code (grab_focus with no key
+# pressed) finds no note and stays silent.
+var _nav_key_frame := -1
+
+
+func _input(event: InputEvent) -> void:
+	for action in NAV_ACTIONS:
+		if event.is_action_pressed(action, true): # (true: holding a key to repeat counts too)
+			_nav_key_frame = Engine.get_process_frames()
+			return
+
+
+func _on_focus_changed(_control: Control) -> void:
+	if _nav_key_frame == Engine.get_process_frames():
+		_nav_key_frame = -1
+		play_sfx(&"ui_noise")
 
 
 func _add_player(bus: StringName) -> AudioStreamPlayer:

@@ -96,7 +96,7 @@ func _run() -> void:
 		return
 	check(transition.trigger_dialogue_id == TRIGGER, "it's triggered by %s ('Off I go then!')" % TRIGGER)
 	check(transition.next_scene == APARTMENTS, "it leads to The Apartments")
-	check(is_equal_approx(transition.duration, 5.0), "it shows for 5 seconds (%.1f)" % transition.duration)
+	check(transition.duration > 0.0, "it shows for a set time (%.1f s, set in the scene)" % transition.duration)
 	check(not transition.visible, "hidden until triggered")
 	var screen: AnimatedSprite2D = transition.screen
 	var tex := screen.sprite_frames.get_frame_texture("default", 0)
