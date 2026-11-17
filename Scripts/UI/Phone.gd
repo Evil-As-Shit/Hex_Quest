@@ -61,6 +61,7 @@ func _ready() -> void:
 	var sweep_frames := charging_sprite.sprite_frames.get_frame_count("Charging")
 	if charge_step_frame < 0 or charge_step_frame >= sweep_frames: # a bad value would charge forever
 		push_warning("Phone: charge_step_frame %d isn't a frame of 'Charging' (0..%d); using the middle one" % [charge_step_frame, sweep_frames - 1])
+		@warning_ignore("integer_division")
 		charge_step_frame = sweep_frames / 2
 	charging_sprite.frame_changed.connect(_on_charging_frame)
 	# One of these fires at the end of each charging loop, depending on whether the animation loops.

@@ -4,7 +4,7 @@ extends Node
 ## Declare every signal WITH its parameters, and fire it with
 ## `SignalController.some_signal.emit(args)` instead of `emit_signal("some_signal", args)`:
 ## typos are caught by the editor and the call is slightly faster.
-
+@warning_ignore_start("unused_signal")
 # Dialogue
 signal display_dialogue(id: String)
 signal finish_dialogue
@@ -24,3 +24,4 @@ signal tags_loaded # every tag was replaced at once (save loaded, or new game)
 # Phone
 signal toggle_phone
 signal phone_interacted
+@warning_ignore_restore("unused_signal")
