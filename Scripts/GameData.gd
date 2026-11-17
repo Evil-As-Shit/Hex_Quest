@@ -20,6 +20,8 @@ var flag_waiting_dialogue_next: bool = false
 
 var is_using_phone: bool = false
 var is_in_dialogue: bool = false
+## While true, the line on screen can't be skipped with interact; release_dialogue() advances it.
+var dialogue_held: bool = false
 
 ## Tags unlocked by dialogue. Used as a set (the value is always true), so lookups are
 ## O(1) and showing the same line twice can't add duplicates.
@@ -53,6 +55,20 @@ func has_tag(tag: String) -> bool:
 	return dialogue_tags.has(tag)
 
 
+## Keeps the current dialogue line on screen until release_dialogue() is called (for lines that wait
+## on something happening, like "Charging phone..."). Only for lines without choices.
+func hold_dialogue() -> void:
+	dialogue_held = true
+
+
+## Ends a hold and moves the held line on (to its divert, or closes it if it's an end line).
+func release_dialogue() -> void:
+	if not dialogue_held:
+		return
+	dialogue_held = false
+	SignalController.dialogue_released.emit()
+
+
 func save_state() -> Dictionary:
 	return {"dialogue_tags": dialogue_tags.keys()}
 
@@ -74,5 +90,6 @@ func reset() -> void:
 	flag_waiting_dialogue_next = false
 	is_using_phone = false
 	is_in_dialogue = false
+	dialogue_held = false
 	move_input_vector = Vector2.ZERO
 	SignalController.tags_loaded.emit()

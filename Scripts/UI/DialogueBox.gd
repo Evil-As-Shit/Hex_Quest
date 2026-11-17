@@ -25,6 +25,7 @@ func _ready() -> void:
 	SignalController.display_dialogue.connect(on_display_dialogue)
 	SignalController.finish_dialogue.connect(on_finish_dialogue)
 	SignalController.close_dialogue.connect(on_close_dialogue)
+	SignalController.dialogue_released.connect(on_dialogue_released)
 	_preload_portraits()
 
 
@@ -55,6 +56,7 @@ func on_choice_focus(n: int) -> void:
 
 func on_close_dialogue() -> void:
 	_kill_tween()
+	GameData.dialogue_held = false
 	GameData.flag_displaying_dialogue = false
 	GameData.flag_waiting_dialogue_next = false
 	GameData.flag_waiting_dialogue_prompt = false
@@ -111,6 +113,16 @@ func on_finish_dialogue() -> void:
 		GameData.flag_waiting_dialogue_prompt = true
 	else:
 		GameData.flag_waiting_dialogue_next = true
+
+
+# A held line was released (GameData.release_dialogue): finish typing it if needed, then move on.
+func on_dialogue_released() -> void:
+	if not visible:
+		return
+	if GameData.flag_displaying_dialogue:
+		on_finish_dialogue()
+	if GameData.flag_waiting_dialogue_next:
+		DialogueController.next()
 
 
 func _kill_tween() -> void:

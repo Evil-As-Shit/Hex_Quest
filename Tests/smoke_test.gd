@@ -25,12 +25,12 @@ func _initialize() -> void:
 	dialogue_controller = load("res://Scripts/DialogueController.gd")
 	# A script error inside the awaiting _run() silently abandons it, so the quit below would never be
 	# reached. This watchdog makes sure the test always ends, with a failure, instead of hanging.
-	create_timer(90.0).timeout.connect(_on_watchdog)
+	create_timer(120.0).timeout.connect(_on_watchdog)
 	_run()
 
 
 func _on_watchdog() -> void:
-	check(false, "test finished within 90s (a script error or a stuck wait aborted the run)")
+	check(false, "test finished within 120s (a script error or a stuck wait aborted the run)")
 	finish()
 
 
@@ -265,14 +265,123 @@ func _run() -> void:
 	print("\n== Phone battery ==")
 	var ph := phone()
 	if need(ph, "the phone (Phone.gd under UI)"):
-		game_data.reset() # a fresh game: dead battery
-		check(ph.battery_state == 0 and game_data.has_tag("PHONE_CHARGE_ZERO"), "reset: battery DEAD, PHONE_CHARGE_ZERO set")
-		game_data.add_tag("PHONE_CHARGE")
-		check(ph.battery_state == 1 and not game_data.has_tag("PHONE_CHARGE_ZERO"), "PHONE_CHARGE: battery CHARGING, PHONE_CHARGE_ZERO removed")
-		game_data.load_state({"dialogue_tags": ["PHONE_CHARGE", "PHONE_CHARGE_FULL"]})
 		var sprite: AnimatedSprite2D = ph.battery_sprite
-		check(ph.battery_state == 2 and not game_data.has_tag("PHONE_CHARGE_ZERO"), "loading charged tags: battery FULL")
-		check(sprite.animation == &"Charges" and sprite.frame == sprite.sprite_frames.get_frame_count("Charges") - 1, "FULL battery shows the last 'Charges' frame (frame %d)" % sprite.frame)
+		var overlay: AnimatedSprite2D = ph.charging_sprite
+		var screen: AnimatedSprite2D = ph.screen
+		var top_frame := sprite.sprite_frames.get_frame_count("Charges") - 1
+		game_data.reset() # a fresh game: dead battery, phone off
+		check(ph.battery_state == 0 and ph.charge == 0 and sprite.animation == &"Ded" and game_data.has_tag("PHONE_CHARGE_ZERO"), "reset: battery dead ('Ded'), PHONE_CHARGE_ZERO set")
+		check(screen.sprite_frames.has_animation(ph.ANIM_OFF) and screen.sprite_frames.has_animation(ph.ANIM_ON), "Phone_Bool has the turn-off/on animations Phone.gd uses (%s, %s)" % [ph.ANIM_OFF, ph.ANIM_ON])
+		check(not ph.is_powered_on and screen.visible and screen.animation == ph.ANIM_OFF and ph.home.disabled, "dead phone is switched off: black screen, buttons disabled")
+		check(ph.max_charge == 1 + sprite.sprite_frames.get_frame_count("Charges"), "levels: dead, dying, then one per 'Charges' frame (max %d)" % ph.max_charge)
+		# Q still opens and closes a dead phone, but it stays off
+		signals.toggle_phone.emit()
+		check(game_data.is_using_phone and not ph.is_powered_on and not ph._powering_on and not ph.home.has_focus(), "a dead phone opens, stays off, Home not focused")
+		signals.toggle_phone.emit()
+		check(not game_data.is_using_phone, "...and closes")
+
+		game_data.load_state({"dialogue_tags": ["PHONE_CHARGE", "PHONE_CHARGE_FULL"]})
+		check(ph.battery_state == 3 and ph.charge == ph.max_charge and not game_data.has_tag("PHONE_CHARGE_ZERO"), "loading charged tags: battery FULL")
+		check(sprite.animation == &"Charges" and sprite.frame == top_frame, "FULL battery shows the last 'Charges' frame (frame %d)" % sprite.frame)
+		check(ph.is_powered_on and not screen.visible and not ph.home.disabled, "a charged phone loads switched on")
+		game_data.load_state({"dialogue_tags": ["PHONE_CHARGE"]}) # saved mid-charge (quit while charging)
+		check(ph.battery_state == 0 and not game_data.has_tag("PHONE_CHARGE"), "a save from mid-charge loads as dead, ready to charge again")
+		ph.load_state({"charge": 5}) # the phone's own save data
+		check(ph.charge == 5 and sprite.animation == &"Charges" and sprite.frame == 3 and ph.is_powered_on, "a saved level 5 loads as 'Charges' frame 3, phone on")
+		check(ph.save_state() == {"charge": 5} and ph.is_in_group("persist"), "the phone saves its level")
+
+		# Draining: down to 'Dying', then dead -> the phone switches itself off
+		ph.add_charge(-(ph.charge - 1))
+		check(ph.charge == 1 and sprite.animation == &"Dying" and sprite.is_playing() and ph.is_powered_on, "level 1: 'Dying' plays, phone still on")
+		# (this phone was powered on by a load, with no animation: Phone_Bool is still parked on the last
+		# turn-off frame from startup, which is exactly when the turn-off animation used to get skipped)
+		var off_frames_seen := {}
+		var see_frame := func(): off_frames_seen[screen.frame] = true
+		screen.frame_changed.connect(see_frame)
+		ph.add_charge(-1)
+		check(ph.charge == 0 and sprite.animation == &"Ded" and game_data.has_tag("PHONE_CHARGE_ZERO"), "level 0: 'Ded'")
+		check(not ph.is_powered_on and screen.visible and screen.animation == ph.ANIM_OFF and screen.is_playing() and ph.home.disabled, "...and the phone plays its turn-off animation and locks its buttons")
+		check(screen.frame == 0, "the turn-off animation starts from its first frame (frame %d)" % screen.frame)
+		var off_count := screen.sprite_frames.get_frame_count(ph.ANIM_OFF)
+		var off_wait := 0.0
+		while screen.is_playing() and off_wait < 3.0:
+			await create_timer(0.05).timeout
+			off_wait += 0.05
+		screen.frame_changed.disconnect(see_frame)
+		off_frames_seen[0] = true # frame 0 is shown without a frame_changed
+		check(off_frames_seen.size() == off_count and screen.frame == off_count - 1, "...shows all %d frames and stays on the last (saw %d)" % [off_count, off_frames_seen.size()])
+		# F6 (debug builds): drain by one
+		ph.add_charge(3)
+		await press("debug_drain_battery")
+		check(ph.charge == 2, "F6 (debug_drain_battery) drains the battery by one (3 -> %d)" % ph.charge)
+		ph.add_charge(ph.max_charge)
+		check(game_data.has_tag("PHONE_CHARGE_FULL"), "refilled: PHONE_CHARGE_FULL set")
+		ph.add_charge(-1)
+		check(not game_data.has_tag("PHONE_CHARGE_FULL"), "below full: PHONE_CHARGE_FULL cleared (so the charger offers again)")
+
+		# The whole charger flow, as the player sees it
+		var charger: Node = scene.get_node_or_null("YSort/Charger")
+		if need(charger, "YSort/Charger"):
+			game_data.reset()
+			dialogue_controller.object_interacted(charger.dialogue_ids)
+			check(game_data.dialogue_id == "ITM010", "dead phone: the charger asks to charge (%s)" % game_data.dialogue_id)
+			await create_timer(1.2).timeout # let the question finish typing
+			game_data.dialogue_choice_id = 0 # "Yes"
+			dialogue_controller.choose()
+			check(game_data.dialogue_id == "ITM011" and ph.battery_state == 1 and game_data.dialogue_held, "Yes: 'Charging phone...' shows, battery CHARGING, line held")
+			check(overlay.visible and overlay.is_playing() and overlay.animation == &"Charging", "Battery_Charging plays over the battery")
+			await create_timer(0.5).timeout # typing done, charge still in its first loop
+			await press("interact")
+			check(game_data.dialogue_id == "ITM011" and box.visible, "interact can't skip the held 'Charging phone...' line")
+			# speed the animation up and record each level change: what the battery shows, and which sweep frame
+			# was covering it at that moment
+			# (the first step may already have happened at normal speed: note where we are, so only real changes
+			# get a sweep frame recorded)
+			var steps: Array = [ph.charge] if ph.charge > 0 else []
+			var shown_after: Array = ["%s:%d" % [sprite.animation, sprite.frame]] if ph.charge > 0 else []
+			var sweep_frames: Array = []
+			var record := func():
+				if steps.is_empty() or steps[-1] != ph.charge:
+					steps.append(ph.charge)
+					shown_after.append("%s:%d" % [sprite.animation, sprite.frame])
+					sweep_frames.append(overlay.frame)
+			overlay.frame_changed.connect(record)
+			overlay.speed_scale = 40.0
+			var waited := 0.0
+			while game_data.dialogue_id != "ITM012" and waited < 10.0:
+				await create_timer(0.05).timeout
+				waited += 0.05
+			overlay.speed_scale = 1.0
+			overlay.frame_changed.disconnect(record)
+			var expected: Array = range(1, ph.max_charge + 1)
+			check(steps == expected, "the battery goes up one level per charging loop, up to full (%s)" % [steps])
+			check(shown_after.size() >= 3 and shown_after[0] == "Dying:0" and shown_after[1] == "Charges:0" and shown_after[-1] == "Charges:%d" % top_frame, "it shows Dying, then each Charges frame in turn (%s)" % [shown_after])
+			check(sweep_frames.all(func(f): return f == ph.charge_step_frame), "every level change happens on sweep frame %d, while it covers the battery (%s)" % [ph.charge_step_frame, sweep_frames])
+			check(ph.charge_step_frame == 10, "charge_step_frame is the fully-covering sweep frame (10)")
+			check(game_data.dialogue_id == "ITM012" and box.visible and not game_data.dialogue_held, "when full, the dialogue moves on to 'Phone is Charged!!!' by itself")
+			check(ph.battery_state == 3 and game_data.has_tag("PHONE_CHARGE_FULL") and not game_data.has_tag("PHONE_CHARGE"), "battery FULL; PHONE_CHARGE_FULL set, PHONE_CHARGE cleared")
+			check(not overlay.visible, "the charging overlay is hidden again")
+			check(not ph.is_powered_on and screen.visible, "the phone stays off until it's opened")
+			signals.close_dialogue.emit()
+			dialogue_controller.object_interacted(charger.dialogue_ids)
+			check(game_data.dialogue_id == "ITM014", "charged phone: the charger says it's already charged (%s)" % game_data.dialogue_id)
+			signals.close_dialogue.emit()
+
+			# Opening the charged phone turns it on (once), then the UI works again
+			screen.speed_scale = 20.0
+			signals.toggle_phone.emit()
+			check(ph._powering_on and screen.visible and screen.animation == &"Turn_Phone_On", "opening it plays the turn-on animation")
+			check(ph.home.disabled, "...with the buttons still locked while it plays")
+			waited = 0.0
+			while not ph.is_powered_on and waited < 5.0:
+				await create_timer(0.05).timeout
+				waited += 0.05
+			screen.speed_scale = 1.0
+			check(ph.is_powered_on and not screen.visible and not ph.home.disabled and ph.home.has_focus(), "then the screen clears, buttons work, Home has focus")
+			signals.toggle_phone.emit()
+			signals.toggle_phone.emit()
+			check(ph.is_powered_on and not ph._powering_on and screen.animation == &"Turn_Phone_On" and not screen.visible, "opening it again doesn't replay the turn-on animation")
+			signals.toggle_phone.emit()
 
 	print("\n== Robustness ==")
 	var bad := FileAccess.open(TEST_SAVE, FileAccess.WRITE)

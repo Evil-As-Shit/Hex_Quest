@@ -9,6 +9,7 @@ extends Node
 signal display_dialogue(id: String)
 signal finish_dialogue
 signal close_dialogue
+signal dialogue_released # a hold ended (see GameData.hold_dialogue): the held line moves on by itself
 
 # World
 signal hexy_location(area_name: String)

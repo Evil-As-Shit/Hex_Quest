@@ -27,7 +27,8 @@ func _on_interact() -> void:
 	elif GameData.flag_waiting_dialogue_prompt:
 		DialogueController.choose()
 	elif GameData.flag_waiting_dialogue_next:
-		DialogueController.next()
+		if not GameData.dialogue_held: # a held line moves on by itself when released
+			DialogueController.next()
 	else:
 		SignalController.interaction_check.emit()
 
