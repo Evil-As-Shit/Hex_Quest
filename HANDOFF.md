@@ -54,7 +54,19 @@ case-only renames on Windows (git has `ignorecase` on): go through a temporary n
 ## 3. Architecture (as it is now)
 
 ### Autoloads (order matters, set in `project.godot`)
-`SignalController` (event bus) -> `GameData` (shared state, loads dialogue) -> `SaveManager`.
+`SignalController` (event bus) -> `GameData` (shared state, loads dialogue) -> `SaveManager` -> `AudioManager`.
+
+### Audio (`Scripts/Autoload/AudioManager.gd`, sounds in `Assets/Sounds/`)
+* Buses in `default_bus_layout.tres`: `Music` and `SFX` (both into Master).
+* Every sound file is listed in AudioManager (`SFX` dict + `TALK`); scripts call `play_sfx(&"name")`,
+  `talk_letter()` / `stop_talking(delay)`, `play_music(path, fade)` / `stop_music(fade)` (music loops).
+  `sound_played(name)` is emitted for tests.
+* Where they play: `phone_open` / `phone_close` (Phone.gd slide up/down), `phone_boot` (turn-on animation),
+  `phone_ded` (battery hits 0 during play, not on load), `phone_charged` (charging finishes), `blip.wav` on every
+  typed letter (DialogueBox typewriter is a `tween_method`; spaces/punctuation are silent; stops 0.06 s after the
+  line finishes or when E skips it), menu music (`MainMenu.music`, fades in, fades out on New/Load Game).
+* Menu music is `sand-frand-_main-menu_.ogg` (334 s, ~5 MB; it replaced a 59 MB WAV, never committed). Keep long
+  music as .ogg: it streams, and big WAVs bloat the repo (GitHub warns at 50 MB, rejects 100 MB).
 
 * `GameData` loads `res://Assets/Data/dialogue.txt` itself in `_ready()` via a **`preload`** of `DialogueParser.gd`
   (not the global class name, so a fresh clone works before Godot builds its class cache).
@@ -262,9 +274,12 @@ godot --headless -s res://addons/hexquest_tools/tests/core_test.gd         # Dia
 godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd           # drives the tool panels
 godot --headless -s res://Tests/menu_test.gd                               # main menu: New Game / Load Game
 godot --headless -s res://Tests/transition_test.gd                         # satellite -> apartments transition
+godot --headless -s res://Tests/audio_test.gd                              # when each sound plays
 ```
 Each prints PASS/FAIL lines and exits non-zero on failure. All three pass on Godot 4.7.2 as of session 2
-(smoke 93, core 80, ui 71, menu 23, transition 22 checks). `menu_test` and `transition_test` register an `OS.add_logger()` Logger and fails on any
+(smoke 93, core 80, ui 71, menu 23, transition 22, audio 19 checks). In a `-s` script, autoloads' `_ready()`
+runs after `_initialize()`: await a frame before using their internals. `menu_test`, `transition_test` and
+`audio_test` register an `OS.add_logger()` Logger and fails on any
 engine/script error printed during the run (script errors don't stop a test on their own); worth copying into the
 other suites. The smoke test's battery flow waits on real animation time (sped up 40x), so it's a few seconds slower. One `ERROR: SaveManager: save file is corrupt` line in the smoke test is **expected** (it
 deliberately writes a corrupt save). Tests use their own save/dialogue files and clean up after themselves.
@@ -334,6 +349,7 @@ only saves if it contains a `GameController`.
     godot --headless -s res://addons/hexquest_tools/tests/ui_test.gd
     godot --headless -s res://Tests/menu_test.gd
     godot --headless -s res://Tests/transition_test.gd
+    godot --headless -s res://Tests/audio_test.gd
 (One "save file is corrupt" error line in smoke_test is expected. On Windows, see HANDOFF.md section 6 for running
 the GUI Godot build with --log-file and a timeout.) In `-s` test scripts, fetch autoloads via
 `root.get_node(...)`, use `root.push_input()` for input, and set `current_scene`.

@@ -56,6 +56,7 @@ func on_choice_focus(n: int) -> void:
 
 func on_close_dialogue() -> void:
 	_kill_tween()
+	AudioManager.stop_talking()
 	GameData.dialogue_held = false
 	GameData.flag_displaying_dialogue = false
 	GameData.flag_waiting_dialogue_next = false
@@ -93,12 +94,30 @@ func _start_typing() -> void:
 		on_finish_dialogue()
 		return
 	_type_tween = create_tween()
-	_type_tween.tween_property(label, "visible_characters", count, count * GameData.time_dialogue)
+	_type_tween.tween_method(_show_characters, 0.0, float(count), count * GameData.time_dialogue)
 	_type_tween.finished.connect(on_finish_dialogue)
+
+
+# Called by the typing tween. Every newly shown letter plays the talking blip (spaces and punctuation don't).
+# (A slow frame can reveal two letters at once; each still counts, the second just restarts the blip.)
+func _show_characters(progress: float) -> void:
+	var shown := int(progress)
+	var before := label.visible_characters
+	if shown <= before:
+		return
+	label.visible_characters = shown
+	for i in range(before, shown):
+		if _is_letter(label.text[i]):
+			AudioManager.talk_letter()
+
+
+static func _is_letter(c: String) -> bool:
+	return c.to_upper() != c.to_lower() or c.is_valid_int() # letters (any alphabet) and digits
 
 
 func on_finish_dialogue() -> void:
 	_kill_tween()
+	AudioManager.stop_talking(0.06) # let the last letter's blip sound a moment (also stops it when E skips typing)
 	GameData.flag_displaying_dialogue = false
 	label.visible_ratio = 1.0
 

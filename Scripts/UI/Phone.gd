@@ -128,6 +128,7 @@ func _on_charging_loop_done() -> void:
 func _finish_charging() -> void:
 	var was_holding := _held_dialogue # (_stop_charging clears it)
 	_stop_charging()
+	AudioManager.play_sfx(&"phone_charged")
 	GameData.remove_tag(TAG_CHARGING)
 	if was_holding:
 		GameData.release_dialogue()
@@ -185,6 +186,7 @@ func _power_off(animate: bool) -> void:
 	screen.visible = true
 	if animate:
 		_play_from_start(ANIM_OFF) # plays once and stays on its last (black) frame
+		AudioManager.play_sfx(&"phone_ded")
 	else:
 		screen.animation = ANIM_OFF
 		screen.frame = screen.sprite_frames.get_frame_count(ANIM_OFF) - 1
@@ -195,6 +197,7 @@ func _power_on() -> void:
 	_powering_on = true
 	screen.visible = true
 	_play_from_start(ANIM_ON) # the UI comes back when it finishes (see below)
+	AudioManager.play_sfx(&"phone_boot")
 
 
 # play(name) on the animation the sprite is already showing carries on from the current frame. Phone_Bool is
@@ -240,6 +243,7 @@ func _set_ui_enabled(on: bool) -> void:
 func phone() -> void:
 	if not GameData.is_using_phone:
 		GameData.is_using_phone = true
+		AudioManager.play_sfx(&"phone_open")
 		if is_powered_on:
 			home.grab_focus()
 		elif charge > LEVEL_DEAD and not _powering_on:
@@ -250,6 +254,7 @@ func phone() -> void:
 		if focused != null:
 			focused.release_focus()
 		GameData.is_using_phone = false
+		AudioManager.play_sfx(&"phone_close")
 		_slide_to(POS_HIDDEN)
 
 
