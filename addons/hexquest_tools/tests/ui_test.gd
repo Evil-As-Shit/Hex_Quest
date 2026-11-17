@@ -139,12 +139,18 @@ func _dialogue_tab(main: Control) -> void:
 	check(tab._status.text.contains("already exists") and db.has_id("ZED900"), "renaming onto an existing id is refused with a message")
 	# rename with references asks for confirmation then updates them
 	tab._confirm.hide()
-	tab.select_id("ITM014")
-	tab._on_rename("ITM014X")
-	check(tab._confirm.visible and not db.has_id("ITM014X"), "renaming a referenced line asks first")
-	tab._confirm_action.call() # the user clicks OK (no scene file uses ITM014)
-	check(db.has_id("ITM014X") and db.get_entry("ITM010")["choice_0"][0] == "ITM014X", "references follow the rename")
-	check(tab._status.text.contains("Renamed"), "and the panel reports it: '%s'" % tab._status.text)
+	# The line must be referenced only by other lines, never by a scene: renaming also rewrites the REAL
+	# .tscn files (this test only has a temp copy of the dialogue). ITM011 is used by ITM010's "Yes" branch.
+	var rename_from := "ITM011"
+	var in_scenes: bool = tab._scene_refs.any(func(r): return (r["ids"] as Array).has(rename_from))
+	check(not in_scenes, "%s isn't used by any scene (else this test would edit real scene files)" % rename_from)
+	if not in_scenes:
+		tab.select_id(rename_from)
+		tab._on_rename(rename_from + "X")
+		check(tab._confirm.visible and not db.has_id(rename_from + "X"), "renaming a referenced line asks first")
+		tab._confirm_action.call() # the user clicks OK
+		check(db.has_id(rename_from + "X") and db.get_entry("ITM010")["choice_0"].has(rename_from + "X"), "references follow the rename")
+		check(tab._status.text.contains("Renamed") and tab._status.text.contains("0 scene files"), "and the panel reports it: '%s'" % tab._status.text)
 	tab._confirm.hide()
 
 	# quick conversation through the dialog
