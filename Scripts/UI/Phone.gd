@@ -30,6 +30,9 @@ enum Battery { DEAD, CHARGING, CHARGED, FULL }
 ## The frame of Battery_Charging's "Charging" animation that covers the whole battery: the level goes up
 ## on this frame, so the change happens out of sight. (Frame 10 is the fully filled sweep.)
 @export var charge_step_frame: int = 10
+## Seconds between opening a freshly charged phone and its boot sound (lets phone_open finish first).
+@export var boot_sound_delay: float = 1.0
+var _power_change_id := 0 # bumped on every power off, so a pending boot sound knows it's stale
 
 @onready var home: Button = $Home
 @onready var battery_sprite: AnimatedSprite2D = $Battery
@@ -180,6 +183,7 @@ func _update_state() -> void:
 # ---- power ----
 
 func _power_off(animate: bool) -> void:
+	_power_change_id += 1
 	is_powered_on = false
 	_powering_on = false
 	_set_ui_enabled(false)
@@ -197,7 +201,14 @@ func _power_on() -> void:
 	_powering_on = true
 	screen.visible = true
 	_play_from_start(ANIM_ON) # the UI comes back when it finishes (see below)
-	AudioManager.play_sfx(&"phone_boot")
+	# The boot sound waits a moment so it doesn't clash with phone_open (both play as the phone opens).
+	# (A connected method, not await: if the scene changes meanwhile, the connection just goes away with the phone.)
+	get_tree().create_timer(boot_sound_delay).timeout.connect(_play_boot_sound.bind(_power_change_id))
+
+
+func _play_boot_sound(power_id: int) -> void:
+	if power_id == _power_change_id and (_powering_on or is_powered_on): # not switched off meanwhile
+		AudioManager.play_sfx(&"phone_boot")
 
 
 # play(name) on the animation the sprite is already showing carries on from the current frame. Phone_Bool is

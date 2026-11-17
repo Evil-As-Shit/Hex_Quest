@@ -61,7 +61,8 @@ case-only renames on Windows (git has `ignorecase` on): go through a temporary n
 * Every sound file is listed in AudioManager (`SFX` dict + `TALK`); scripts call `play_sfx(&"name")`,
   `talk_letter()` / `stop_talking(delay)`, `play_music(path, fade)` / `stop_music(fade)` (music loops).
   `sound_played(name)` is emitted for tests.
-* Where they play: `phone_open` / `phone_close` (Phone.gd slide up/down), `phone_boot` (turn-on animation),
+* Where they play: `phone_open` / `phone_close` (Phone.gd slide up/down), `phone_boot` (turn-on animation, delayed by `Phone.boot_sound_delay` = 1 s so it doesn't clash with
+  `phone_open`; dropped if the phone dies meanwhile),
   `phone_ded` (battery hits 0 during play, not on load), `phone_charged` (charging finishes), `blip.wav` on every
   typed letter (DialogueBox typewriter is a `tween_method`; spaces/punctuation are silent; stops 0.06 s after the
   line finishes or when E skips it), menu music (`MainMenu.music`, fades in, fades out on New/Load Game).

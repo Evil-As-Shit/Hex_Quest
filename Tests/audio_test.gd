@@ -160,12 +160,32 @@ func _run() -> void:
 	check(count(&"phone_charged") == 1, "charging finishes: phone_charged")
 	played.clear()
 	signals.toggle_phone.emit()
-	check(count(&"phone_boot") == 1 and count(&"phone_open") == 1, "opening the charged phone: phone_open + phone_boot")
+	check(count(&"phone_open") == 1 and count(&"phone_boot") == 0, "opening the charged phone: phone_open at once, boot sound not yet")
+	check(is_equal_approx(ph.boot_sound_delay, 1.0), "boot sound delay is 1 second")
+	await create_timer(0.8).timeout
+	check(count(&"phone_boot") == 0, "...still no boot sound at 0.8 s")
+	await create_timer(0.35).timeout
+	check(count(&"phone_boot") == 1 and played.find(&"phone_open") < played.find(&"phone_boot"), "phone_boot plays after the 1 s delay")
+	var on_wait := 0.0
+	while not ph.is_powered_on and on_wait < 3.0:
+		await create_timer(0.05).timeout
+		on_wait += 0.05
 	signals.toggle_phone.emit()
 	await frames(2)
 	played.clear()
 	signals.toggle_phone.emit()
+	await create_timer(1.2).timeout
 	check(count(&"phone_boot") == 0, "...and no boot sound once it's on")
+	signals.toggle_phone.emit()
+	# Dies again within the delay: the pending boot sound is dropped
+	ph.add_charge(-ph.max_charge)
+	ph.add_charge(ph.max_charge)
+	await frames(2)
+	played.clear()
+	signals.toggle_phone.emit() # starts turning on
+	ph.add_charge(-ph.max_charge) # ...and the battery runs out straight away
+	await create_timer(1.2).timeout
+	check(count(&"phone_boot") == 0, "if the phone dies during the delay, no boot sound")
 	signals.toggle_phone.emit()
 
 	print("\n== Menu music ==")
