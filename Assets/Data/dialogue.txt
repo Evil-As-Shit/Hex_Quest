@@ -128,8 +128,8 @@
 		},
 		{
 			"id": "ITM015",
-			"text": "A phone charger... not much use without my phone.",
-			"expression": null,
+			"text": "An outlet... not much use without my phone.",
+			"expression": "witch_confused",
 			"isEnd": true
 		},
 		{
@@ -172,7 +172,7 @@
 		},
 		{
 			"id": "NPC003",
-			"text": "Yea! There is an outlet over by the door! Feel free to use it.",
+			"text": "Yea! There is an outlet over by the lamp! Feel free to use it.",
 			"expression": "npc1_happy",
 			"isEnd": true
 		},

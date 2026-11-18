@@ -8,6 +8,7 @@
 
 # Godot export output
 export/
+Builds/
 *.translation
 
 # Editor caches / backups

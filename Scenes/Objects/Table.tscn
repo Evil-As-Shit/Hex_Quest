@@ -7,7 +7,7 @@
 size = Vector2(6, 5)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_vsqci"]
-size = Vector2(15, 16)
+size = Vector2(18, 17.5)
 
 [node name="Table" type="StaticBody2D" unique_id=944845625]
 collision_layer = 4
@@ -33,4 +33,5 @@ collision_mask = 0
 monitoring = false
 
 [node name="Interact_Area" type="CollisionShape2D" parent="Object_Id" unique_id=30355590]
+position = Vector2(0, 0.75)
 shape = SubResource("RectangleShape2D_vsqci")
